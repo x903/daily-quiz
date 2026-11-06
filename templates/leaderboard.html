@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ board.period_label }} · 排行榜{% endblock %}
+{% block content %}
+<h1 class="page-title">排行榜</h1>
+<p class="muted">每答对 1 题得 {{ points_per_correct }} 分，按日 / 周 / 月三个维度统计积分排名。</p>
+
+<div class="lb-tabs">
+    {% for code, label in periods.items() %}
+        <a class="lb-tab {% if period == code %}active{% endif %}"
+           href="{{ url_for('leaderboard_page', period=code, date=date_param) if date_param else url_for('leaderboard_page', period=code) }}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<div class="lb-period-nav">
+    <a href="{{ url_for('leaderboard_page', period=period, date=prev_date) }}">上一期</a>
+    <span><b>{{ board.period_label }}</b> · {{ board.range_label }} · 共 {{ board.participants }} 人上榜</span>
+    <a href="{{ url_for('leaderboard_page', period=period, date=next_date) }}">下一期</a>
+    <a class="muted" href="{{ url_for('leaderboard_page', period=period) }}">回到本期</a>
+</div>
+
+{% if my %}
+    <div class="card lb-me-card">
+        <b>我的{{ board.period_label }}</b>：第 <strong>{{ my.rank }}</strong> 名 ·
+        <strong>{{ my.points }}</strong> 分 · 答对 {{ my.correct }} 题 ·
+        活跃 {{ my.active_days }} 天 · 单日最佳 {{ my.best_day }} 分
+    </div>
+{% else %}
+    <div class="card">
+        本期你还没有积分。去 <a href="{{ url_for('index') }}">答题</a>，每答对 1 题得 {{ points_per_correct }} 分。
+    </div>
+{% endif %}
+
+{% if top %}
+    <table class="table lb-table">
+        <thead>
+            <tr><th>排名</th><th>用户</th><th>积分</th><th>答对题数</th><th>活跃天数</th><th>单日最佳</th></tr>
+        </thead>
+        <tbody>
+            {% for row in top %}
+                <tr class="{% if row.rank <= 3 %}lb-top-{{ row.rank }}{% endif %}{% if row.user_id == current_uid %} lb-me-row{% endif %}">
+                    <td><span class="lb-rank {% if row.rank <= 3 %}lb-medal lb-medal-{{ row.rank }}{% endif %}">{{ row.rank }}</span></td>
+                    <td>
+                        {{ row.username }}
+                        {% if row.user_id == current_uid %}<span class="tag">我</span>{% endif %}
+                    </td>
+                    <td class="lb-points">{{ row.points }}</td>
+                    <td>{{ row.correct }}</td>
+                    <td>{{ row.active_days }}</td>
+                    <td>{{ row.best_day }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if board.participants > top | length %}
+        <p class="muted">仅展示前 {{ top | length }} 名，共 {{ board.participants }} 人上榜；你自己的名次见上方卡片。</p>
+    {% endif %}
+{% else %}
+    <div class="card"><p class="muted">本期暂无积分记录，快来抢占第一名。</p></div>
+{% endif %}
+
+<div class="card hint">
+    <h3>积分与统计规则</h3>
+    <ul>
+        <li>只有<strong>正式答题</strong>计分，每答对 1 题得 {{ points_per_correct }} 分；错题重练不计分。</li>
+        <li>统计日期按<strong>答题发生日</strong>，补做历史日期的题目计入补做当天。</li>
+        <li>同一天多次答题只取<strong>当日最高一次</strong>得分；周榜 / 月榜为这些每日得分之和，避免重复答题刷榜。</li>
+        <li>日榜为当天，周榜为周一至周日，月榜为自然月 1 日至月末；积分相同则并列名次。</li>
+        <li>每次答题都会写入积分流水（含 0 分），可在数据库中完整追溯积分历史。</li>
+    </ul>
+</div>
+{% endblock %}

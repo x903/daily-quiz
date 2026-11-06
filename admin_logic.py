@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from datetime import date as date_cls
 from typing import Optional
 
+import db
 import models
+import navigation
 
 TYPE_LABELS: dict[str, str] = {
     "single": "单选题",
@@ -93,6 +94,7 @@ def build_set_editor(set_date: str) -> Optional[dict]:
     return {
         "set": dict(s),
         "date": set_date,
+        "selected_category": s["category_slug"] if "category_slug" in s.keys() else "",
         "questions": questions,
         "stats": models.get_set_stats(s["id"]),
         "type_labels": TYPE_LABELS,
@@ -147,7 +149,7 @@ def _parse_answer(raw: str, options: dict[str, str], q_type: str, label: str) ->
     return answer
 
 
-def _parse_question(form, row: sqlite3.Row) -> Optional[dict]:
+def _parse_question(form, row: db.Row) -> Optional[dict]:
     """解析单道题的编辑表单。
 
     Args:
@@ -230,6 +232,15 @@ def save_edit(set_date: str, form) -> dict:
     if len(title) > 200:
         raise EditError("标题不能超过 200 个字符")
 
+    # 栏目为可选修改：留空表示保持原归属（兼容脚本与旧表单），
+    # 非空则必须是通过导航配置树校验的合法 slug，并同步刷新路径快照。
+    category_slug = (form.get("category_slug") or "").strip()
+    category_path = None
+    if category_slug:
+        if not navigation.is_valid_category(category_slug):
+            raise EditError("所属栏目不合法，请重新选择")
+        category_path = navigation.category_path_label(category_slug)
+
     rows = models.get_all_questions_by_set(s["id"])
     updates: list[dict] = []
     delete_ids: list[int] = []
@@ -266,7 +277,11 @@ def save_edit(set_date: str, form) -> dict:
                     conn=conn,
                 )
             total = models.recount_total_sets(s["id"], conn=conn)
-            models.update_daily_set(s["id"], new_date, title, conn=conn)
+            models.update_daily_set(
+                s["id"], new_date, title, conn=conn,
+                category_slug=category_slug or None,
+                category_path=category_path,
+            )
 
         return {
             "date": new_date,
@@ -275,7 +290,7 @@ def save_edit(set_date: str, form) -> dict:
             "deleted": len(delete_ids),
             "total": total,
         }
-    except sqlite3.IntegrityError as exc:
+    except db.IntegrityError as exc:
         # date 唯一约束等数据库级冲突：转成可读提示，事务已由 with conn 回滚
         raise EditError(f"保存失败（数据冲突）：{exc}") from exc
     finally:

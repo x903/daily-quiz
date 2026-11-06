@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "_category_picker.html" import category_picker with context %}
 {% block title %}题目导入{% endblock %}
 {% block content %}
 <h1 class="page-title">题目导入</h1>
-<p class="muted">支持上传 Markdown 文件、选择 data/ 下已有文件，或直接粘贴文本导入题目。</p>
+<p class="muted">选择所属栏目并上传 UTF-8 编码的 Markdown 文件导入题目，支持的题目格式见页面下方说明。</p>
 
 <form method="post" action="{{ url_for('import_do') }}" class="form" enctype="multipart/form-data">
     <div class="form-row">
@@ -15,31 +16,16 @@
     </div>
 
     <div class="form-row">
-        <label>方式一：上传 Markdown 文件</label>
+        <label>导入栏目 <span class="required-mark">*</span></label>
+        {{ category_picker(selected=selected_category or '', required=True) }}
+        <span class="field-tip">例如「阿里云认证 › 阿里云ACP › 云计算高级工程师」。导入后可在对应栏目页查看与答题，也可在编辑题库时调整。</span>
+    </div>
+
+    <div class="form-row">
+        <label>上传 Markdown 文件</label>
         <input type="file" name="md_file" accept=".md,.markdown,.txt" class="file-input"
                onchange="autoFillDateFromName(this.files[0] ? this.files[0].name : '')">
-        <span class="field-tip">上传后将以文件内容为准（优先级最高）；文件名含日期（如 2026-11-04）会自动填入上方日期。</span>
-    </div>
-
-    {% if md_files %}
-    <div class="form-row">
-        <label>方式二：选择已有文件</label>
-        <div class="file-select-row">
-            <select id="existing-file-select" onchange="if(this.value) autoFillDateFromName(this.value)">
-                <option value="">-- 请选择 --</option>
-                {% for f in md_files %}
-                <option value="{{ f }}">{{ f }}</option>
-                {% endfor %}
-            </select>
-            <button type="button" class="btn btn-ghost btn-sm" id="load-file-btn" onclick="loadExistingFile()">加载到编辑器</button>
-        </div>
-        <span class="field-tip">点击「加载」将文件内容读入下方文本框，可预览或修改后再提交。</span>
-    </div>
-    {% endif %}
-
-    <div class="form-row">
-        <label>{% if md_files %}方式三：{% endif %}直接粘贴 Markdown</label>
-        <textarea name="markdown" id="markdown-textarea" rows="18" placeholder="粘贴 Markdown 内容，或点击上方「加载到编辑器」读取已有文件...">{{ md_text or '' }}</textarea>
+        <span class="field-tip">文件名含日期（如 ACP模拟题20道_2026-11-04.md）时，日期为空会自动填入；也可在上方手动指定日期。</span>
     </div>
 
     {% if need_confirm %}
@@ -47,6 +33,9 @@
             该日期（{{ today }}）已存在题库。是否覆盖？覆盖将删除原题目、成绩与错题。
         </div>
         <input type="hidden" name="confirm_overwrite" value="1">
+        {# 浏览器无法回填已选文件，用隐藏字段暂存上一轮上传的内容；不是导入入口 #}
+        <textarea name="pending_content" style="display:none">{{ pending_content or '' }}</textarea>
+        <span class="field-tip">已保留本次上传的文件内容，无需重新选择；如需改用其他文件，可在上方重新选择后再确认。</span>
         <div class="btn-row">
             <button type="submit" class="btn btn-danger">确认覆盖并导入</button>
             <a class="btn btn-ghost" href="{{ url_for('import_page') }}">取消</a>
@@ -95,37 +84,10 @@ function autoFillDateFromName(name) {
     var d = extractDateFromName(name);
     if (!d) return;
     var dateInput = document.querySelector('input[name="date"]');
-    if (dateInput && !dateInput.value) {
+    // defaultValue 是页面渲染时的默认日期；用户没手动改过（或已清空）时才用文件名日期覆盖
+    if (dateInput && (!dateInput.value || dateInput.value === dateInput.defaultValue)) {
         dateInput.value = d;
     }
-}
-
-function loadExistingFile() {
-    var sel = document.getElementById('existing-file-select');
-    var filename = sel.value;
-    if (!filename) { alert('请先从下拉列表选择一个文件'); return; }
-    var btn = document.getElementById('load-file-btn');
-    btn.disabled = true;
-    btn.textContent = '加载中...';
-    fetch('{{ url_for("import_api_load") }}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({filename: filename})
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        btn.disabled = false;
-        btn.textContent = '加载到编辑器';
-        if (data.error) { alert(data.error); return; }
-        var textarea = document.getElementById('markdown-textarea');
-        textarea.value = data.content;
-        textarea.scrollTop = 0;
-    })
-    .catch(function() {
-        btn.disabled = false;
-        btn.textContent = '加载到编辑器';
-        alert('加载失败，请重试');
-    });
 }
 </script>
 {% endblock %}

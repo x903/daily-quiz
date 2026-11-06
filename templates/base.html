@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    {% from "_nav.html" import render_cert_items with context %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}每日答题系统{% endblock %}</title>
@@ -13,8 +14,16 @@
             <nav class="nav">
                 {% if current_user %}
                     <a href="{{ url_for('index') }}">首页</a>
-                    <a href="{{ url_for('history') }}">历史日期</a>
                     <a href="{{ url_for('wrong_list') }}">错题本</a>
+                    <a href="{{ url_for('leaderboard_page') }}">排行榜</a>
+                    {# 阿里云认证：唯一的多级菜单，结构由 navigation.CERT_NAV 驱动 #}
+                    <span class="nav-dropdown{% if cert_active_slug %} is-current{% endif %}" data-nav-dropdown>
+                        <a class="nav-link" href="{{ url_for('cert_index') }}" aria-haspopup="true">阿里云认证</a>
+                        <button type="button" class="nav-toggle" aria-label="展开阿里云认证子菜单" aria-expanded="false">▾</button>
+                        <ul class="nav-submenu nav-level-2">
+                            {{ render_cert_items(cert_nav.children, 2) }}
+                        </ul>
+                    </span>
                     {% if current_user.role == 'admin' %}
                         <a href="{{ url_for('import_page') }}">导入题目</a>
                         <a href="{{ url_for('admin_dashboard') }}">后台管理</a>
@@ -47,6 +56,8 @@
     <footer class="footer">
         <span>Flask 每日答题系统 · SQLite · 多用户权限版</span>
     </footer>
+    <script src="{{ url_for('static', filename='nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='category_picker.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

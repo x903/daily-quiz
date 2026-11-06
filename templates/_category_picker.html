@@ -1,0 +1,25 @@
+{# 配置驱动的三级栏目选择器宏。
+
+   栏目树由 app.py 的 context_processor 注入（navigation.category_tree_payload()），
+   联动逻辑在 static/category_picker.js。以后新增认证体系或 ACP 方向只需改
+   navigation.CERT_NAV / 调用 register_acp_direction，本宏与脚本都无需改动。
+
+   参数：
+   - selected: 已选中的栏目 slug（编辑页回填用）。
+   - required: 为 True 时提交前强制校验必须选到末级栏目（导入页）。
+   - name: 提交给后端的字段名，默认 category_slug。
+#}
+{% macro category_picker(selected='', required=True, name='category_slug') %}
+<div class="category-picker" data-category-picker
+     data-selected="{{ selected }}"
+     data-required="{{ '1' if required else '0' }}"
+     data-tree='{{ category_tree | tojson }}'>
+    <div class="category-picker-row">
+        <select class="cat-level" data-cat-level="0" aria-label="一级栏目"></select>
+        <select class="cat-level" data-cat-level="1" aria-label="二级栏目"></select>
+        <select class="cat-level" data-cat-level="2" aria-label="三级栏目"></select>
+    </div>
+    <input type="hidden" name="{{ name }}" value="{{ selected }}" data-category-value>
+    <span class="field-tip category-picker-hint" data-category-hint></span>
+</div>
+{% endmacro %}

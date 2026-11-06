@@ -1,0 +1,8 @@
+# 每日答题系统运行依赖（Python 3.10+）
+# 本地安装：pip install -r requirements.txt
+Flask>=3.0,<4
+# MySQL 驱动；cryptography 用于 MySQL 8 默认的 caching_sha2_password 认证
+PyMySQL>=1.1,<2
+cryptography>=41
+# 生产 WSGI 服务器（Dockerfile 使用；本地 python app.py 不需要）
+gunicorn>=21,<27

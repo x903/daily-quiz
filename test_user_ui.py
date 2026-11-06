@@ -31,11 +31,14 @@ has_import = ("导入" in body) or ("import_page" in body) or ("去导入" in bo
 print("普通用户首页含『导入』字样:", has_import, "(期望 False)")
 assert not has_import, "普通用户首页不应出现导入入口"
 
-# 3) 普通用户历史页空态也不含导入链接（用真实渲染，非 admin）
+# 3) 「历史日期」栏目已下线：/history 不再提供页面，首页与栏目页均无该入口
 r_hist = client.get("/history", follow_redirects=False)
-body_h = r_hist.get_data(as_text=True)
-print("普通用户 /history 含『导入题目』链接:", ("导入题目" in body_h), "(期望 False)")
-assert "导入题目" not in body_h
+print("普通用户 /history ->", r_hist.status_code, "(期望 404)")
+assert r_hist.status_code == 404
+for path in ("/", "/certification/acp"):
+    body_x = client.get(path).get_data(as_text=True)
+    assert "历史日期" not in body_x, f"{path} 仍出现历史日期入口"
+    assert "导入题目" not in body_x, f"{path} 普通用户不应出现导入入口"
 
 # 4) 普通用户可正常看到今日答题（2026-11-04 已导入）
 print("普通用户今日答题页 GET /quiz/2026-11-04 ->",

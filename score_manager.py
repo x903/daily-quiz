@@ -6,9 +6,9 @@
 """
 from __future__ import annotations
 
-import sqlite3
 from typing import Optional
 
+import db
 from models import get_conn
 
 
@@ -21,7 +21,7 @@ def save_record(
     accuracy: float,
     duration: int,
     finished_at: str,
-    conn: Optional[sqlite3.Connection] = None,
+    conn: Optional[db.Connection] = None,
 ) -> int:
     """保存（覆盖）某用户某日的成绩记录，返回记录 id。
 

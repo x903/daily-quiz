@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "_category_picker.html" import category_picker with context %}
 {% block title %}编辑题库 · {{ date }}{% endblock %}
 {% block content %}
 <h1 class="page-title">编辑题库 <span class="muted">{{ date }}</span></h1>
-<p class="muted">可修改题库日期、标题，以及每道题的题型、题干、选项、答案与解析；勾选「删除本题」可移除单道题。</p>
+<p class="muted">可修改题库日期、标题、所属栏目，以及每道题的题型、题干、选项、答案与解析；勾选「删除本题」可移除单道题。</p>
 
 <div class="notice-box">
     该题库当前有 <b>{{ view.stats.question_count }}</b> 道题、<b>{{ view.stats.record_count }}</b> 条成绩、<b>{{ view.stats.wrong_count }}</b> 条错题。
@@ -21,8 +22,14 @@
         <div class="form-row">
             <label for="set-title">标题</label>
             <input type="text" id="set-title" name="set_title" value="{{ view.set.title }}" maxlength="200" required>
-            <span class="field-tip">标题会显示在首页、历史列表、答题页与成绩页。</span>
+            <span class="field-tip">标题会显示在首页、栏目页、答题页与成绩页。</span>
         </div>
+    </div>
+
+    <div class="form-row">
+        <label>所属栏目</label>
+        {{ category_picker(selected=view.selected_category or '', required=False) }}
+        <span class="field-tip">修改后题库会出现在对应栏目页；保持不选则不修改当前归属（当前：{{ view.set.category_path or '未分类' }}）。</span>
     </div>
 
     <h2 class="section-title">题目内容（共 {{ view.questions | length }} 题）</h2>

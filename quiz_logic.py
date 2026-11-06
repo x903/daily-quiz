@@ -16,6 +16,7 @@ from typing import Optional
 
 import models
 import parser as md_parser
+import points
 import score_manager
 import wrong_book
 from parser import ParseResult
@@ -30,14 +31,19 @@ def import_day(
     title: str,
     parse_result: ParseResult,
     overwrite: bool = False,
+    category_slug: str = "",
+    category_path: str = "",
 ) -> dict:
-    """将解析结果导入为某日期的题库。
+    """将解析结果导入为某日期的题库，并标记所属栏目。
 
     Args:
         date: 日期（YYYY-MM-DD）。
         title: 标题。
         parse_result: 解析结果。
         overwrite: 若该日期已存在，是否覆盖。
+        category_slug: 栏目节点 slug；由路由层校验后传入，空串表示未分类
+            （脚本直接调用时保持向后兼容）。
+        category_path: 栏目路径文案快照。
 
     Returns:
         结果字典，ok=False 且 reason="exists" 表示需用户确认覆盖。
@@ -48,7 +54,10 @@ def import_day(
     if existing and overwrite:
         models.delete_set_cascade(date)
 
-    set_id = models.create_daily_set(date, title, parse_result.total_sets, "pending")
+    set_id = models.create_daily_set(
+        date, title, parse_result.total_sets, "pending",
+        category_slug, category_path,
+    )
     for set_index in sorted(parse_result.sets.keys()):
         for q in parse_result.sets[set_index]:
             models.insert_question(
@@ -150,14 +159,14 @@ def grade_and_save(date: str, user_id: int, form, duration: int) -> dict:
 
     Raises:
         ValueError: 登录用户已失效，或该日期尚未导入题目。
-        sqlite3.Error: 写库失败（事务已整体回滚，不会留下半写数据）。
+        db.DatabaseError: 写库失败（事务已整体回滚，不会留下半写数据）。
     """
     duration = max(0, int(duration))
     conn = models.get_conn()
     try:
         # 外键保护：题库重建后残留的旧 session 里的 user_id 可能已不存在，
         # 若直接写入 wrong_questions / daily_records 会触发
-        # sqlite3.IntegrityError: FOREIGN KEY constraint failed。这里提前拦截，
+        # db.IntegrityError: FOREIGN KEY constraint failed。这里提前拦截，
         # 由路由层清理登录态并给出友好提示。
         if not conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone():
             raise ValueError("登录状态已失效，请重新登录")
@@ -202,6 +211,18 @@ def grade_and_save(date: str, user_id: int, form, duration: int) -> dict:
                 conn=conn,
             )
             models.set_set_status(set_id, "completed", conn=conn)
+            # 积分与成绩、错题共用同一事务：判分成功则一定有积分，
+            # 任何一步失败则三者一起回滚，不会出现「有成绩没积分」
+            earned_points = points.award_for_quiz(
+                conn,
+                user_id=user_id,
+                set_id=set_id,
+                record_id=record_id,
+                set_date=date,
+                correct=correct,
+                total=total,
+                earned_at=finished_at,
+            )
 
         return {
             "record_id": record_id,
@@ -212,6 +233,7 @@ def grade_and_save(date: str, user_id: int, form, duration: int) -> dict:
             "wrong": wrong,
             "accuracy": accuracy,
             "duration": duration,
+            "points": earned_points,
         }
     finally:
         conn.close()

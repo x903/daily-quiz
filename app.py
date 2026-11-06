@@ -2,14 +2,15 @@
 
 角色与权限：
 - 未登录：仅可访问 /login 与 /register。
-- 普通用户（user）：答题、查看个人成绩与错题、历史回顾、导出个人数据。
-- 管理员（admin）：在普通用户能力之上，可进入后台：导入题库（支持粘贴文本、
-  上传 MD 文件、选择 data/ 下已有 MD 文件）、编辑题库（日期/标题/逐题内容）、
-  删除题库、查看所有用户的答题记录与用户统计。
+- 普通用户（user）：答题、查看个人成绩与错题、按认证栏目浏览题库、查看排行榜、导出个人数据。
+- 管理员（admin）：在普通用户能力之上，可进入后台：导入题库（仅支持上传
+  Markdown 文件）、编辑题库（日期/标题/逐题内容）、删除题库、
+  查看所有用户的答题记录与用户统计。
 
 路由分组：
 - 公开：/login /register
-- 需登录：/ /quiz /result /history /date /score /wrong /export/...
+- 需登录：/ /quiz /result /date /score /wrong /leaderboard /leaderboard/api
+           /certification（阿里云认证栏目，配置驱动）/export/...
 - 仅管理员：/import /admin /admin/users /admin/records
              /admin/set/<date>/edit（编辑题库）、/admin/set/<date>/delete（删除确认与执行）
 """
@@ -18,7 +19,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sqlite3
 from datetime import date, datetime
 from functools import wraps
 from typing import Optional
@@ -26,6 +26,7 @@ from typing import Optional
 from flask import (
     Flask,
     Response,
+    abort,
     flash,
     g,
     jsonify,
@@ -38,23 +39,26 @@ from flask import (
 
 import admin_logic
 import auth
+import db
+import leaderboard
 import models
+import navigation
 import parser as md_parser
+import points
 import quiz_logic
 import score_manager
 import wrong_book
 
 app = Flask(__name__)
-app.secret_key = "daily-quiz-secret-key"  # 用于 session 与 flash 消息
+# 生产部署（Docker）务必通过 SECRET_KEY 注入随机值；本地开发用固定默认值
+app.secret_key = os.environ.get("SECRET_KEY") or "daily-quiz-secret-key"
 # 解析文本渲染过滤器：所有显示答案的页面统一通过它输出（内部已做 HTML 转义）
 app.jinja_env.filters["exp_html"] = quiz_logic.explanation_to_html
 
 models.init_db()
 auth.create_default_users()
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-
-# 日期探测：用于在管理员上传 / 读取 MD 文件时，从文件名、标题或文件头自动推断导入日期
+# 日期探测：用于在管理员上传 MD 文件时，从文件名、标题或文件头自动推断导入日期
 _DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 
@@ -70,27 +74,6 @@ def _guess_date(md_text: str, title: str, filename: str) -> str:
         if m:
             return m.group(1)
     return ""
-
-
-def _list_md_files() -> list[str]:
-    """列出 data/ 目录下的 Markdown 文件（供管理员选择导入）。"""
-    files: list[str] = []
-    if os.path.isdir(DATA_DIR):
-        for f in sorted(os.listdir(DATA_DIR)):
-            if f.lower().endswith((".md", ".markdown")):
-                files.append(f)
-    return files
-
-
-def _is_safe_md_name(filename: str) -> bool:
-    """校验文件名：仅允许纯文件名的 .md/.markdown，防止路径穿越（保留中文名）。"""
-    if not filename:
-        return False
-    if os.path.basename(filename) != filename:
-        return False  # 含路径分隔符
-    if ".." in filename:
-        return False
-    return filename.lower().endswith((".md", ".markdown"))
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +152,34 @@ def inject_user():
     return {"current_user": None}
 
 
+@app.context_processor
+def inject_navigation():
+    """向所有模板注入「阿里云认证」菜单树、当前栏目与 URL 生成函数。
+
+    每次请求都读取 `navigation.CERT_NAV`，因此运行时注册新的 ACP 方向会
+    立即反映到菜单与页面上，无需重启服务或修改模板。
+    """
+    slug = (request.view_args or {}).get("slug")
+    in_section = request.endpoint in ("cert_index", "cert_detail")
+    if request.endpoint == "cert_index":
+        slug = navigation.CERT_NAV.slug
+
+    def cert_url(target_slug: str) -> str:
+        if target_slug == navigation.CERT_NAV.slug:
+            return url_for("cert_index")
+        return url_for("cert_detail", slug=target_slug)
+
+    return {
+        "cert_nav": navigation.CERT_NAV,
+        "cert_active_slug": slug if in_section else None,
+        "cert_url": cert_url,
+        # 导入页 / 编辑页的三级栏目选择器共用同一份配置树；每次请求重新读取，
+        # 运行时新增 ACP 方向会立即出现在选择器中。
+        "category_tree": navigation.category_tree_payload(),
+        "category_label": navigation.category_label,
+    }
+
+
 def _current_user_id() -> int:
     user = _resolve_current_user()
     return int(user["id"]) if user else 0
@@ -177,6 +188,26 @@ def _current_user_id() -> int:
 def _is_admin() -> bool:
     user = _resolve_current_user()
     return bool(user and user["role"] == "admin")
+
+
+def _board_args() -> tuple[str, date, str]:
+    """解析排行榜查询参数，非法值一律回退到默认值（今日日榜）。
+
+    Returns:
+        (period, on_date, raw_date)。raw_date 用于 tab 链接中原样保留基准日期；
+        非法或为空时返回空串（链接回落到本期）。
+    """
+    period = (request.args.get("period") or "day").strip()
+    if period not in leaderboard.PERIOD_LABELS:
+        period = "day"
+    raw_date = (request.args.get("date") or "").strip()
+    on_date = date.today()
+    if raw_date:
+        try:
+            on_date = date.fromisoformat(raw_date)
+        except ValueError:
+            raw_date = ""
+    return period, on_date, raw_date
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +276,9 @@ def index():
         today_record = score_manager.get_record_by_set_user(today_set["id"], _current_user_id())
     recent = models.list_daily_sets(user_id=_current_user_id())[:7]
     wrong_count = len(wrong_book.get_all_wrong(user_id=_current_user_id()))
+    # 首页卡片展示「我的今日积分 / 日榜排名」，点击可进入完整榜单
+    day_board = leaderboard.get_leaderboard("day", date.today())
+    my_day = leaderboard.find_user(day_board["items"], _current_user_id())
     return render_template(
         "index.html",
         today=today,
@@ -252,6 +286,7 @@ def index():
         today_record=today_record,
         recent=recent,
         wrong_count=wrong_count,
+        my_day=my_day,
     )
 
 
@@ -263,52 +298,54 @@ def index():
 @admin_required
 def import_page():
     today = date.today().strftime("%Y-%m-%d")
-    return render_template("import.html", today=today, md_files=_list_md_files())
-
-
-@app.route("/import/api/load", methods=["POST"])
-@admin_required
-def import_api_load():
-    """AJAX 接口：读取 data/ 目录下指定 MD 文件的内容，返回 JSON。"""
-    data = request.get_json(silent=True) or {}
-    filename = str(data.get("filename", ""))
-    if not _is_safe_md_name(filename):
-        return jsonify(error="文件名非法或仅支持 Markdown 文件"), 400
-    filepath = os.path.join(DATA_DIR, filename)
-    if not os.path.isfile(filepath):
-        return jsonify(error="文件不存在"), 404
-    with open(filepath, "r", encoding="utf-8") as f:
-        content = f.read()
-    return jsonify(content=content, filename=filename)
+    return render_template("import.html", today=today, selected_category="")
 
 
 @app.route("/import", methods=["POST"])
 @admin_required
 def import_do():
-    md_text = request.form.get("markdown", "")
+    """导入题目：仅接受上传的 Markdown 文件，并必须指定所属栏目。
+
+    覆盖确认时浏览器无法回填已选文件，因此确认页用隐藏字段 `pending_content`
+    暂存上一轮上传的内容；该字段仅在 `confirm_overwrite=1` 时读取，
+    不作为独立的导入入口（即已取消的「直接粘贴」方式）。
+    栏目 slug 一律用 navigation.is_valid_category 校验，防止伪造值入库；
+    同时把完整路径文案作为快照写入题库，菜单调整后仍能显示归属。
+    """
     import_date = request.form.get("date", "").strip()
     title = request.form.get("title", "").strip()
+    category_slug = request.form.get("category_slug", "").strip()
     confirm_overwrite = request.form.get("confirm_overwrite") == "1"
 
-    # 优先使用上传的 MD 文件（若提供）
     uploaded_file = request.files.get("md_file")
     uploaded_filename = ""
+    md_text = ""
     if uploaded_file and uploaded_file.filename:
-        md_text = uploaded_file.read().decode("utf-8")
         uploaded_filename = uploaded_file.filename
+        try:
+            md_text = uploaded_file.read().decode("utf-8")
+        except UnicodeDecodeError:
+            flash("文件不是有效的 UTF-8 文本，请另存为 UTF-8 编码的 Markdown 文件", "error")
+            return redirect(url_for("import_page"))
         if not title:
             title = uploaded_filename.rsplit(".", 1)[0]
+    elif confirm_overwrite:
+        md_text = request.form.get("pending_content", "")
 
     # 日期未手动填写时，依次从文件名、标题、正文头部自动探测
     if not import_date:
         import_date = _guess_date(md_text, title, uploaded_filename)
 
+    if not md_text.strip():
+        flash("请先选择要导入的 Markdown 文件", "error")
+        return redirect(url_for("import_page"))
     if not import_date:
         flash("请选择导入日期（或从文件名/标题中识别到形如 2026-11-04 的日期）", "error")
         return redirect(url_for("import_page"))
-    if not md_text.strip():
-        flash("请粘贴 Markdown 题目内容或上传 MD 文件", "error")
+    if not navigation.is_valid_category(category_slug):
+        flash("请选择完整的导入栏目（例如 阿里云认证 › 阿里云ACP › 云计算高级工程师）", "error")
         return redirect(url_for("import_page"))
+    category_path = navigation.category_path_label(category_slug)
 
     result = md_parser.parse_markdown(md_text)
     if result.total_questions == 0 and not result.failed:
@@ -318,16 +355,20 @@ def import_do():
     if not title:
         title = f"{import_date} 每日答题"
 
-    imported = quiz_logic.import_day(import_date, title, result, overwrite=confirm_overwrite)
+    imported = quiz_logic.import_day(
+        import_date, title, result,
+        overwrite=confirm_overwrite,
+        category_slug=category_slug,
+        category_path=category_path,
+    )
     if not imported["ok"] and imported.get("reason") == "exists":
         return render_template(
             "import.html",
             today=import_date,
-            preview=imported,
-            md_text=md_text,
             title=title,
             need_confirm=True,
-            md_files=_list_md_files(),
+            pending_content=md_text,
+            selected_category=category_slug,
         )
 
     flash(
@@ -335,7 +376,13 @@ def import_do():
         + (f"，{len(imported['failed'])} 题导入失败" if imported["failed"] else ""),
         "success",
     )
-    return render_template("import_result.html", date=import_date, result=imported)
+    return render_template(
+        "import_result.html",
+        date=import_date,
+        result=imported,
+        category_slug=category_slug,
+        category_path=category_path,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +422,7 @@ def quiz_submit(date):
             return redirect(url_for("login"))
         flash(message, "error")
         return redirect(url_for("index"))
-    except sqlite3.Error:
+    except db.DatabaseError:
         # grade_and_save 使用单事务，异常时已整体回滚，不会留下半写数据
         app.logger.exception("保存答题结果失败: date=%s", date)
         flash("保存答题结果失败，请稍后重试", "error")
@@ -390,15 +437,15 @@ def result(record_id):
     rec = score_manager.get_record(record_id)
     if not rec:
         flash("未找到该成绩记录", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     # 权限校验：仅本人或管理员可查看
     if rec["user_id"] != _current_user_id() and not _is_admin():
         flash("无权查看该成绩", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     s = models.get_daily_set_by_id(rec["daily_set_id"])
     if not s:
         flash("未找到对应的题目集", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     wrongs = wrong_book.get_wrong_by_date(s["date"], rec["user_id"])
     for w in wrongs:
         w["user_text"] = quiz_logic.answer_to_text(w["options"], w["user_answer"])
@@ -407,15 +454,8 @@ def result(record_id):
 
 
 # ---------------------------------------------------------------------------
-# 历史 & 题目查看 & 成绩（需登录）
+# 题目查看 & 成绩（需登录；历史日期栏目已下线，题目从首页最近列表与栏目页进入）
 # ---------------------------------------------------------------------------
-
-@app.route("/history")
-@login_required
-def history():
-    sets = models.list_daily_sets(user_id=_current_user_id())
-    return render_template("history.html", sets=sets)
-
 
 @app.route("/date/<date>")
 @login_required
@@ -423,7 +463,7 @@ def date_detail(date):
     s = models.get_daily_set_by_date(date)
     if not s:
         flash("该日期尚未导入题目", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     rows = models.get_all_questions_by_set(s["id"])
     sets: dict[int, list[dict]] = {}
     for r in rows:
@@ -447,10 +487,10 @@ def score_detail(date):
     view = quiz_logic.build_score_view(date, _current_user_id())
     if not view:
         flash("该日期尚未导入题目", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     if not view["record"]:
         flash("你还没有完成该日期的答题", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     for w in view["wrongs"]:
         w["user_text"] = quiz_logic.answer_to_text(w["options"], w["user_answer"])
         w["correct_text"] = quiz_logic.answer_to_text(w["options"], w["correct_answer"])
@@ -491,7 +531,7 @@ def wrong_practice_submit(date):
             session.clear()
         flash(str(exc), "error")
         return redirect(url_for("login") if "登录状态" in str(exc) else url_for("wrong_list"))
-    except sqlite3.Error:
+    except db.DatabaseError:
         app.logger.exception("保存错题重练结果失败: date=%s", date)
         flash("保存重练结果失败，请稍后重试", "error")
         return redirect(url_for("wrong_list"))
@@ -514,6 +554,83 @@ def wrong_clear():
 
 
 # ---------------------------------------------------------------------------
+# 排行榜（需登录，全员可见）
+# ---------------------------------------------------------------------------
+
+@app.route("/leaderboard")
+@login_required
+def leaderboard_page():
+    """日榜 / 周榜 / 月榜页面，支持 ?period=day|week|month 与 ?date=YYYY-MM-DD。"""
+    period, on_date, raw_date = _board_args()
+    board = leaderboard.get_leaderboard(period, on_date)
+    uid = _current_user_id()
+    return render_template(
+        "leaderboard.html",
+        board=board,
+        period=period,
+        periods=leaderboard.PERIOD_LABELS,
+        date_param=raw_date,
+        prev_date=leaderboard.shift_period(period, on_date, -1).isoformat(),
+        next_date=leaderboard.shift_period(period, on_date, 1).isoformat(),
+        my=leaderboard.find_user(board["items"], uid),
+        current_uid=uid,
+        top=board["items"][:50],
+        points_per_correct=points.POINTS_PER_CORRECT,
+    )
+
+
+@app.route("/leaderboard/api")
+@login_required
+def leaderboard_api():
+    """榜单 JSON 接口，便于前端异步刷新或外部集成（数据与页面同源）。"""
+    period, on_date, _ = _board_args()
+    board = leaderboard.get_leaderboard(period, on_date)
+    return jsonify(
+        period=board["period"],
+        period_label=board["period_label"],
+        start=board["start"],
+        end=board["end"],
+        range_label=board["range_label"],
+        participants=board["participants"],
+        items=board["items"][:100],
+    )
+
+
+# ---------------------------------------------------------------------------
+# 阿里云认证栏目（配置驱动：菜单树 / 面包屑 / 页面骨架共用 navigation.py）
+# ---------------------------------------------------------------------------
+
+def _render_cert_page(slug: str):
+    """渲染栏目页：菜单配置 + 该栏目（含子栏目）下已导入的题库。
+
+    父栏目会聚合所有子孙栏目的题目，例如「阿里云ACP」页能看到「云计算
+    高级工程师」下的题库，「阿里云认证」总览能看到全部认证题库。未分类的
+    历史题库不出现在栏目页，只在首页「最近题目」中展示。
+    """
+    page = navigation.find_page(slug)
+    if page is None:
+        abort(404)
+    quiz_sets = models.list_sets_by_category(
+        navigation.descendant_slugs(slug), user_id=_current_user_id()
+    )
+    return render_template("certification.html", page=page, quiz_sets=quiz_sets)
+
+
+@app.route("/certification")
+@login_required
+def cert_index():
+    """一级菜单「阿里云认证」的总览介绍页。"""
+    return _render_cert_page(navigation.CERT_NAV.slug)
+
+
+@app.route("/certification/<slug>")
+@login_required
+def cert_detail(slug):
+    """ACA / ACP / ACE 及 ACP 各方向共用的介绍页，新增方向无需新增路由。"""
+    return _render_cert_page(slug)
+
+
+# ---------------------------------------------------------------------------
 # 导出（需登录，仅本人数据）
 # ---------------------------------------------------------------------------
 
@@ -530,7 +647,7 @@ def export_questions(date):
     s = models.get_daily_set_by_date(date)
     if not s:
         flash("该日期尚未导入题目", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     rows = models.get_all_questions_by_set(s["id"])
     sets: dict[int, list[dict]] = {}
     for r in rows:
@@ -548,6 +665,8 @@ def export_questions(date):
         "date": date,
         "title": s["title"],
         "total_sets": s["total_sets"],
+        "category_slug": s["category_slug"],
+        "category_path": s["category_path"],
         "sets": [{"set_index": k, "questions": v} for k, v in sorted(sets.items())],
     }
     return _json_download(payload, f"questions_{date}.json")
@@ -559,14 +678,16 @@ def export_score(date):
     s = models.get_daily_set_by_date(date)
     if not s:
         flash("该日期尚未导入题目", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     rec = score_manager.get_record_by_set_user(s["id"], _current_user_id())
     if not rec:
         flash("你还没有完成该日期的答题，暂无成绩可导出", "error")
-        return redirect(url_for("history"))
+        return redirect(url_for("index"))
     payload = {
         "date": date,
         "title": s["title"],
+        "category_slug": s["category_slug"],
+        "category_path": s["category_path"],
         "total": rec["total"],
         "correct": rec["correct"],
         "wrong": rec["wrong"],
@@ -648,7 +769,7 @@ def admin_edit_set(date):
             saved = admin_logic.save_edit(date, request.form)
         except admin_logic.EditError as exc:
             flash(str(exc), "error")
-        except sqlite3.Error:
+        except db.DatabaseError:
             app.logger.exception("保存题库修改失败: date=%s", date)
             flash("保存失败，请稍后重试", "error")
         else:
@@ -687,7 +808,7 @@ def admin_delete_set(date):
         except admin_logic.EditError as exc:
             flash(str(exc), "error")
             return redirect(url_for("admin_dashboard"))
-        except sqlite3.Error:
+        except db.DatabaseError:
             app.logger.exception("删除题库失败: date=%s", date)
             flash("删除失败，请稍后重试", "error")
             return render_template("admin_set_delete.html", preview=preview, date=date)
@@ -705,4 +826,9 @@ def admin_delete_set(date):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # Docker 部署用 gunicorn（见 Dockerfile / docker-compose.yml），这里仅供本地开发
+    app.run(
+        host=os.environ.get("FLASK_RUN_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FLASK_RUN_PORT", 5000)),
+        debug=True,
+    )

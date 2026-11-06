@@ -1,0 +1,61 @@
+# ============================================================================
+# 每日答题系统 · 一键部署（MySQL 8.0 + Flask/Gunicorn）
+#   docker compose up -d --build
+#   docker compose logs -f web
+#   docker compose down          # 停止但保留数据卷
+#   docker compose down -v       # 连数据卷一起删除（不可恢复）
+# 访问 http://localhost:5000 ，默认账号 admin/admin123、user/user123
+# ============================================================================
+services:
+  db:
+    image: mysql:8.0
+    container_name: daily-quiz-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-daily_quiz}
+      MYSQL_USER: ${MYSQL_USER:-quiz}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-quizpass}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    volumes:
+      # 数据持久化；首次启动时自动执行建表脚本（幂等，应用 init_db 会再校验一次）
+      - mysql_data:/var/lib/mysql
+      - ./schema_mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    # 默认只在内部网络暴露；如需用宿主机工具连库，取消下面两行注释
+    # ports:
+    #   - "3306:3306"
+
+  web:
+    build: .
+    image: daily-quiz:latest
+    container_name: daily-quiz-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_BACKEND: mysql
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-quiz}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-quizpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-daily_quiz}
+      DB_CONNECT_RETRIES: "30"
+      DB_CONNECT_RETRY_DELAY: "2"
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-in-production}
+      TZ: Asia/Shanghai
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+
+volumes:
+  mysql_data:

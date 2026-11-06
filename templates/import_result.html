@@ -2,6 +2,8 @@
 {% block title %}导入结果{% endblock %}
 {% block content %}
 <h1 class="page-title">导入结果 · {{ date }}</h1>
+<p class="muted">所属栏目：<strong>{{ category_path }}</strong> ·
+    <a href="{{ cert_url(category_slug) }}">查看栏目页</a></p>
 
 <div class="stat-row">
     <div class="stat"><div class="stat-num">{{ result.total_sets }}</div><div class="stat-label">套数</div></div>

@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime
 from typing import Optional
 
+import db
 from models import get_conn
 
 
@@ -20,7 +20,7 @@ def add_wrong(
     user_id: int,
     user_answer: list[str],
     correct_answer: list[str],
-    conn: Optional[sqlite3.Connection] = None,
+    conn: Optional[db.Connection] = None,
 ) -> None:
     """记录某用户的错题（若已存在则更新用户答案）。
 
@@ -77,7 +77,7 @@ def add_wrong(
 
 
 def remove_wrong(
-    question_id: int, user_id: int, conn: Optional[sqlite3.Connection] = None
+    question_id: int, user_id: int, conn: Optional[db.Connection] = None
 ) -> None:
     """移出某用户某道题的错题记录（答对后调用）。
 

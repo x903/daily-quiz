@@ -193,14 +193,9 @@ textarea { resize: vertical; }
 .admin-section { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); margin-top: 18px; }
 .btn-tiny { padding: 4px 10px; font-size: 12px; margin-left: 8px; }
 
-/* 文件上传 / 已有文件选择 */
+/* 文件上传 */
 .file-input { padding: 8px 0; font-size: 14px; }
 .field-tip { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
-.file-select-row { display: flex; gap: 8px; align-items: center; }
-.file-select-row select {
-    flex: 1; padding: 8px 12px; border: 1px solid var(--line);
-    border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff;
-}
 .hint h4 { margin: 14px 0 6px; font-size: 14px; color: var(--ink); }
 
 /* 管理员：题库编辑 / 删除确认 */
@@ -243,4 +238,88 @@ textarea { resize: vertical; }
 .option-edit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .option-letter { width: 22px; font-weight: 700; color: var(--primary-d); flex: none; }
 .option-edit-row input[type=text] { flex: 1; }
+
+/* 排行榜 */
+.lb-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 12px; }
+.lb-tab {
+    padding: 8px 20px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); color: var(--primary); text-decoration: none; font-size: 14px;
+}
+.lb-tab:hover { background: #eef3ff; }
+.lb-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.lb-period-nav {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    margin: 12px 0 18px; font-size: 14px;
+}
+.lb-period-nav a { color: var(--primary); text-decoration: none; }
+.lb-period-nav a:hover { text-decoration: underline; }
+.lb-me-card { border-left: 4px solid var(--primary); margin-bottom: 16px; }
+.lb-table td, .lb-table th { vertical-align: middle; }
+.lb-points { font-weight: 700; color: var(--primary-d); font-size: 15px; }
+.lb-rank { display: inline-block; min-width: 26px; text-align: center; font-weight: 700; color: var(--muted); }
+.lb-medal { color: #fff; border-radius: 999px; padding: 2px 8px; }
+.lb-medal-1 { background: #d9a520; }
+.lb-medal-2 { background: #8d9aab; }
+.lb-medal-3 { background: #b97748; }
+.lb-top-1 { background: #fffaf0; }
+.lb-top-2 { background: #f8fafc; }
+.lb-top-3 { background: #fff7f2; }
+.lb-me-row { box-shadow: inset 3px 0 0 var(--primary); }
+
+/* 阿里云认证：三级下拉菜单
+   仅作用于 .nav-dropdown / .nav-submenu 内部，沿用顶栏配色与卡片变量，
+   不改动上方 .nav a 等既有规则，其它一级菜单保持原样。 */
+.nav-dropdown { position: relative; display: inline-block; margin-left: 18px; }
+.nav-dropdown > .nav-link { margin-left: 0; color: #eaf0ff; text-decoration: none; font-size: 14px; }
+.nav-dropdown.is-current > .nav-link { color: #fff; font-weight: 600; }
+.nav-toggle {
+    background: transparent; border: 0; padding: 0 2px; margin-left: 4px;
+    color: inherit; cursor: pointer; font-size: 13px; line-height: 1;
+}
+.nav-submenu {
+    display: none; position: absolute; top: 100%; left: 0; z-index: 30;
+    min-width: 190px; margin: 8px 0 0; padding: 6px 0; list-style: none;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow);
+}
+/* 桌面 hover / 键盘 focus / 触屏点击（.open 由 nav.js 切换）均可展开 */
+[data-nav-dropdown]:hover > .nav-submenu,
+[data-nav-dropdown]:focus-within > .nav-submenu,
+[data-nav-dropdown].open > .nav-submenu { display: block; }
+.nav-submenu li { position: relative; }
+.nav-level-3 { top: -7px; left: 100%; margin-top: 0; }
+.nav .nav-submenu a {
+    display: block; margin: 0; padding: 8px 14px; color: var(--ink);
+    font-size: 14px; text-decoration: none; white-space: nowrap;
+}
+.nav .nav-submenu a:hover,
+.nav .nav-submenu a.is-active { color: var(--primary-d); background: #eef3ff; text-decoration: none; }
+.nav .nav-submenu a.is-active { font-weight: 600; }
+.nav-submenu .has-children > a { padding-right: 30px; }
+.nav-submenu .has-children > .nav-toggle {
+    position: absolute; top: 7px; right: 8px; margin: 0; color: var(--muted);
+}
+
+/* 认证栏目介绍页 */
+.breadcrumb { font-size: 13px; margin-bottom: 14px; }
+.breadcrumb a { color: var(--primary); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb-sep { color: var(--muted); margin: 0 8px; }
+.cert-intro { font-size: 15px; margin: 6px 0 4px; }
+.card h2 a { color: var(--ink); text-decoration: none; }
+.card h2 a:hover { color: var(--primary-d); }
+
+@media (max-width: 640px) {
+    .nav-dropdown { display: block; margin: 8px 0 0 18px; }
+    .nav-submenu, .nav-level-3 { position: static; box-shadow: none; margin: 4px 0 0; }
+    .nav-level-3 { margin-left: 12px; }
+}
+
+/* 三级栏目选择器（题目导入页 / 题库编辑页共用） */
+.required-mark { color: #c0392b; font-weight: 700; }
+.category-picker-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.category-picker-row .cat-level { flex: 1 1 180px; min-width: 160px; }
+.cat-level.is-hidden { display: none; }
+.category-picker-hint { display: block; margin-top: 8px; }
+.category-picker-hint.is-error { color: #c0392b; font-weight: 600; }
 
