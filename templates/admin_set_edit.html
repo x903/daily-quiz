@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}编辑题库 · {{ date }}{% endblock %}
+{% block content %}
+<h1 class="page-title">编辑题库 <span class="muted">{{ date }}</span></h1>
+<p class="muted">可修改题库日期、标题，以及每道题的题型、题干、选项、答案与解析；勾选「删除本题」可移除单道题。</p>
+
+<div class="notice-box">
+    该题库当前有 <b>{{ view.stats.question_count }}</b> 道题、<b>{{ view.stats.record_count }}</b> 条成绩、<b>{{ view.stats.wrong_count }}</b> 条错题。
+    修改题目<b>不会重算历史成绩</b>（成绩是当时的作答快照）；删除本题会连带移除该题的错题记录。
+    如需按新题目重新统计，请重新答该日期的题目。
+</div>
+
+<form method="post" action="{{ url_for('admin_edit_set', date=date) }}" class="form" onsubmit="return confirmEditSubmit();">
+    <h2 class="section-title">基本信息</h2>
+    <div class="editor-basic">
+        <div class="form-row">
+            <label for="set-date">日期</label>
+            <input type="date" id="set-date" name="set_date" value="{{ date }}" required>
+            <span class="field-tip">修改后该题库及其答题记录会归入新日期；新日期不能与其他题库重复。</span>
+        </div>
+        <div class="form-row">
+            <label for="set-title">标题</label>
+            <input type="text" id="set-title" name="set_title" value="{{ view.set.title }}" maxlength="200" required>
+            <span class="field-tip">标题会显示在首页、历史列表、答题页与成绩页。</span>
+        </div>
+    </div>
+
+    <h2 class="section-title">题目内容（共 {{ view.questions | length }} 题）</h2>
+    {% for q in view.questions %}
+        <section class="editor-card" id="q-card-{{ q.id }}">
+            <div class="editor-card-head">
+                <h2>第 {{ q.set_index }} 题 <span class="tag">ID {{ q.id }}</span></h2>
+                <label class="del-check">
+                    <input class="del-check-input" type="checkbox" name="q_{{ q.id }}_delete" value="1"
+                           onchange="toggleDelete({{ q.id }}, this.checked)"> 删除本题
+                </label>
+            </div>
+            <div class="editor-card-body">
+                <div class="form-row">
+                    <label>题型</label>
+                    <select name="q_{{ q.id }}_type">
+                        {% for code, label in view.type_labels.items() %}
+                            <option value="{{ code }}" {% if q.type == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>题干</label>
+                    <textarea name="q_{{ q.id }}_question" rows="2" required>{{ q.question }}</textarea>
+                </div>
+                <div class="form-row">
+                    <label>选项（留空表示不使用该选项）</label>
+                    {% for letter in q.letters %}
+                        <div class="option-edit-row">
+                            <span class="option-letter">{{ letter }}.</span>
+                            <input type="text" name="q_{{ q.id }}_option_{{ letter }}"
+                                   value="{{ q.options.get(letter, '') }}" placeholder="选项 {{ letter }} 内容（留空则忽略）">
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="form-row">
+                    <label>正确答案</label>
+                    <input type="text" name="q_{{ q.id }}_answer" value="{{ q.answer | join('') }}" placeholder="单选填 B，多选填 ABD" required>
+                    <span class="field-tip">字母需对应上方已填写的选项；单选 1 个、多选至少 2 个、判断填 A（正确）或 B（错误）。</span>
+                </div>
+                <div class="form-row">
+                    <label>解析</label>
+                    <textarea name="q_{{ q.id }}_explanation" rows="4"
+                              placeholder="支持 **加粗** 与 - 列表，例如：&#10;- **考点**：...&#10;- **易错点**：...">{{ q.explanation }}</textarea>
+                    <span class="field-tip">解析会显示在题目回顾、成绩详情、答题结果与错题本中；答题页不会显示。</span>
+                </div>
+            </div>
+        </section>
+    {% endfor %}
+
+    <div class="btn-row">
+        <button type="submit" class="btn btn-primary">保存修改</button>
+        <a class="btn btn-danger" href="{{ url_for('admin_delete_set', date=date) }}">删除整个题库</a>
+        <a class="btn btn-ghost" href="{{ url_for('admin_dashboard') }}">返回后台</a>
+    </div>
+</form>
+
+<script>
+function toggleDelete(id, checked) {
+    var card = document.getElementById('q-card-' + id);
+    if (card) card.classList.toggle('marked-delete', checked);
+}
+function confirmEditSubmit() {
+    var n = document.querySelectorAll('.del-check-input:checked').length;
+    if (n > 0 && !confirm('本次将删除 ' + n + ' 道题目及其关联错题，确定继续吗？')) {
+        return false;
+    }
+    return true;
+}
+</script>
+{% endblock %}

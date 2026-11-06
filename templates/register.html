@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}注册 · 每日答题系统{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        <h1>注册新账号</h1>
+        <p class="sub">注册后将作为普通用户，可答题、查看个人成绩与错题。</p>
+        <form method="post" action="{{ url_for('register') }}">
+            <div class="form-row">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" placeholder="2-20 个字符" required autofocus>
+            </div>
+            <div class="form-row">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="至少 6 位" required>
+            </div>
+            <div class="form-row">
+                <label for="confirm">确认密码</label>
+                <input type="password" id="confirm" name="confirm" placeholder="再次输入密码" required>
+            </div>
+            <button type="submit" class="btn">注册并登录</button>
+        </form>
+        <p class="auth-foot">已有账号？<a href="{{ url_for('login') }}">去登录</a></p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}错题重练 · {{ date }}{% endblock %}
+{% block content %}
+<h1 class="page-title">错题重练 · {{ date }}</h1>
+<p class="muted">共 {{ wrongs | length }} 道错题，答对即从错题本移除。</p>
+
+<div class="quiz-sticky">
+    <div class="quiz-sticky-right">⏱ <span id="timer">00:00</span></div>
+</div>
+
+<form id="quiz-form" method="post" action="{{ url_for('wrong_practice_submit', date=date) }}">
+    {% for w in wrongs %}
+        <div class="question">
+            <p class="q-head">
+                <span class="q-type q-type-{{ w.type }}">{{ '单选' if w.type=='single' else ('多选' if w.type=='multiple' else '判断') }}</span>
+                <span class="q-text">第{{ w.set_index }}题 · {{ w.question }}</span>
+            </p>
+            <div class="options">
+                {% for letter, text in w.options.items() %}
+                    <label class="option">
+                        <input
+                            type="{{ 'radio' if w.type != 'multiple' else 'checkbox' }}"
+                            name="q_{{ w.question_id }}"
+                            value="{{ letter }}">
+                        <span><b>{{ letter }}.</b> {{ text }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+
+    <div class="submit-bar">
+        <button type="submit" class="btn btn-lg">提交重练</button>
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

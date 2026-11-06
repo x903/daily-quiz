@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}答题 · {{ data.date }}{% endblock %}
+{% block content %}
+<h1 class="page-title">每日答题 · {{ data.date }} <span class="muted">{{ data.title }}</span></h1>
+
+{% if record %}
+<div class="flash flash-ok">该日期已完成过答题（正确率 {{ record.accuracy }}%）。本次提交将更新成绩与错题本。</div>
+{% endif %}
+
+<div class="quiz-sticky">
+    <div class="quiz-sticky-left">
+        当前：<strong>第 <span id="current-set">1</span> 题</strong> / 共 {{ data.sets | length }} 题
+    </div>
+    <div class="quiz-progress">
+        <div class="quiz-progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="quiz-sticky-right">
+        进度 <span id="progress-text">0 / {{ data.total }}</span> · ⏱ <span id="timer">00:00</span>
+    </div>
+</div>
+
+<form id="quiz-form" method="post" action="{{ url_for('quiz_submit', date=data.date) }}">
+    <input type="hidden" name="duration" id="duration" value="0">
+    <input type="hidden" id="total-count" value="{{ data.total }}">
+
+    {% for st in data.sets %}
+        <section class="quiz-set" data-set="{{ st.set_index }}">
+            <h2 class="set-title">第 {{ st.set_index }} 题</h2>
+            {% for q in st.questions %}
+                <div class="question">
+                    <p class="q-head">
+                        <span class="q-type q-type-{{ q.type }}">{{ '单选' if q.type=='single' else ('多选' if q.type=='multiple' else '判断') }}</span>
+                        <span class="q-text">{{ q.question }}</span>
+                    </p>
+                    <div class="options">
+                        {% for letter, text in q.options.items() %}
+                            <label class="option">
+                                <input
+                                    type="{{ 'radio' if q.type != 'multiple' else 'checkbox' }}"
+                                    name="q_{{ q.id }}"
+                                    value="{{ letter }}">
+                                <span><b>{{ letter }}.</b> {{ text }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+    {% endfor %}
+
+    <div class="submit-bar">
+        <button type="submit" id="submit-btn" class="btn btn-lg">提交并判分</button>
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from '_macros.html' import explanation_block %}
+{% block title %}成绩详情 · {{ view.date }}{% endblock %}
+{% block content %}
+<h1 class="page-title">成绩详情 · {{ view.date }} <span class="muted">{{ view.title }}</span></h1>
+
+{% if view.record %}
+    <div class="stat-row">
+        <div class="stat"><div class="stat-num">{{ view.record.total }}</div><div class="stat-label">总题数</div></div>
+        <div class="stat stat-ok"><div class="stat-num">{{ view.record.correct }}</div><div class="stat-label">正确</div></div>
+        <div class="stat stat-bad"><div class="stat-num">{{ view.record.wrong }}</div><div class="stat-label">错误</div></div>
+        <div class="stat"><div class="stat-num">{{ view.record.accuracy }}%</div><div class="stat-label">正确率</div></div>
+        <div class="stat"><div class="stat-num">{{ view.record.duration }}s</div><div class="stat-label">用时</div></div>
+    </div>
+    <p class="muted">完成时间：{{ view.record.finished_at }}</p>
+{% else %}
+    <p class="warn">该日期尚未完成答题。</p>
+    <a class="btn" href="{{ url_for('quiz', date=view.date) }}">去答题</a>
+{% endif %}
+
+<h2 class="section-title">当日错题（共 {{ view.wrongs | length }} 题）</h2>
+{% if view.wrongs %}
+    {% for w in view.wrongs %}
+        <div class="wrong-item">
+            <p class="q-text">第{{ w.set_index }}题 · {{ w.question }}</p>
+            <p class="err-line">你的答案：<b>{{ w.user_text or '（未作答）' }}</b></p>
+            <p class="ok-line">正确答案：<b>{{ w.correct_text }}</b></p>
+            {{ explanation_block(w.explanation) }}
+        </div>
+    {% endfor %}
+{% else %}
+    <p class="ok">当前没有错题。</p>
+{% endif %}
+
+<div class="btn-row">
+    <a class="btn btn-ghost" href="{{ url_for('export_score', date=view.date) }}">导出成绩 JSON</a>
+    <a class="btn btn-ghost" href="{{ url_for('history') }}">返回历史</a>
+</div>
+{% endblock %}

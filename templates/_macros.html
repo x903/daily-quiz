@@ -1,0 +1,10 @@
+{# 共用宏：在显示答案的位置一并展示题目解析。
+   exp_html 过滤器在 quiz_logic.explanation_to_html 中做 HTML 转义与轻量 Markdown 渲染。 #}
+{% macro explanation_block(text) %}
+{% if text and text.strip() %}
+<div class="explanation">
+    <div class="exp-title">📖 解析</div>
+    <div class="exp-body">{{ text | exp_html | safe }}</div>
+</div>
+{% endif %}
+{% endmacro %}

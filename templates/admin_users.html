@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}用户管理 · 后台{% endblock %}
+{% block content %}
+<h1 class="page-title">用户管理</h1>
+<p class="muted">全部注册用户及其答题统计。普通用户仅能访问自己的数据；管理员可管理题库与查看全部记录。</p>
+
+{% if users %}
+    <table class="table">
+        <thead>
+            <tr><th>ID</th><th>用户名</th><th>角色</th><th>答题次数</th><th>平均正确率</th><th>错题数</th><th>注册时间</th></tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td><b>{{ u.username }}</b></td>
+                    <td>
+                        <span class="role-badge role-{{ u.role }}">{{ '管理员' if u.role == 'admin' else '用户' }}</span>
+                    </td>
+                    <td>{{ u.record_count }}</td>
+                    <td>{% if u.avg_accuracy is not none %}{{ '%.1f' % u.avg_accuracy }}%{% else %}—{% endif %}</td>
+                    <td>{{ u.wrong_count }}</td>
+                    <td class="muted">{{ u.created_at }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="muted">暂无用户。</p>
+{% endif %}
+
+<div class="btn-row">
+    <a class="btn btn-ghost" href="{{ url_for('admin_dashboard') }}">返回后台</a>
+</div>
+{% endblock %}

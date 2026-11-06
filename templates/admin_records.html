@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}全部答题记录 · 后台{% endblock %}
+{% block content %}
+<h1 class="page-title">全部答题记录</h1>
+<p class="muted">所有用户的每日答题成绩（按完成时间倒序）。普通用户仅能查看自己的记录。</p>
+
+{% if records %}
+    <table class="table">
+        <thead>
+            <tr><th>用户</th><th>日期</th><th>标题</th><th>总题数</th><th>正确</th><th>错误</th><th>正确率</th><th>用时</th><th>完成时间</th></tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+                <tr>
+                    <td><b>{{ r.username }}</b></td>
+                    <td>{{ r.date }}</td>
+                    <td>{{ r.title }}</td>
+                    <td>{{ r.total }}</td>
+                    <td class="ok">{{ r.correct }}</td>
+                    <td class="err">{{ r.wrong }}</td>
+                    <td>{{ r.accuracy }}%</td>
+                    <td>{{ r.duration }}s</td>
+                    <td class="muted">{{ r.finished_at }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="muted">暂无答题记录。</p>
+{% endif %}
+
+<div class="btn-row">
+    <a class="btn btn-ghost" href="{{ url_for('admin_dashboard') }}">返回后台</a>
+</div>
+{% endblock %}

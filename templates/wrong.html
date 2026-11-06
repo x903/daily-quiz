@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from '_macros.html' import explanation_block %}
+{% block title %}错题本{% endblock %}
+{% block content %}
+<h1 class="page-title">错题本</h1>
+<p class="muted">自动记录每日答错的题目，支持按日期重练与一键清空。</p>
+
+{% if wrongs %}
+    <form method="post" action="{{ url_for('wrong_clear') }}" onsubmit="return confirm('确定清空全部错题记录？此操作不可恢复。');">
+        <button type="submit" class="btn btn-danger">清空错题本</button>
+    </form>
+
+    {% set dates = wrongs | map(attribute='date') | unique | list %}
+    {% for d in dates %}
+        <h2 class="section-title">{{ d }}
+            <a class="btn btn-sm btn-ghost" href="{{ url_for('wrong_practice', date=d) }}">重练该日错题</a>
+        </h2>
+        {% for w in wrongs if w.date == d %}
+            <div class="wrong-item">
+                <p class="q-text">第{{ w.set_index }}题 · {{ w.question }}</p>
+                <p class="err-line">你的答案：<b>{{ w.user_text or '（未作答）' }}</b></p>
+                <p class="ok-line">正确答案：<b>{{ w.correct_text }}</b></p>
+                {{ explanation_block(w.explanation) }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+{% else %}
+    <p class="ok">🎉 错题本空空如也，继续保持！</p>
+{% endif %}
+{% endblock %}

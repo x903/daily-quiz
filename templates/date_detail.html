@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from '_macros.html' import explanation_block %}
+{% block title %}题目回顾 · {{ set_info.date }}{% endblock %}
+{% block content %}
+<h1 class="page-title">题目回顾 · {{ set_info.date }} <span class="muted">{{ set_info.title }}</span></h1>
+
+{% for st in grouped %}
+    <section class="quiz-set">
+        <h2 class="set-title">第 {{ st.set_index }} 题</h2>
+        {% for q in st.questions %}
+            <div class="question">
+                <p class="q-head">
+                    <span class="q-type q-type-{{ q.type }}">{{ '单选' if q.type=='single' else ('多选' if q.type=='multiple' else '判断') }}</span>
+                    <span class="q-text">{{ q.question }}</span>
+                </p>
+                <div class="options">
+                    {% for letter, text in q.options.items() %}
+                        <div class="option option-static {% if letter in q.answer %}option-correct{% endif %}">
+                            <span><b>{{ letter }}.</b> {{ text }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <p class="answer-line">答案：<b>{{ q.answer | join('') }}</b></p>
+                {{ explanation_block(q.explanation) }}
+            </div>
+        {% endfor %}
+    </section>
+{% endfor %}
+
+<div class="btn-row">
+    <a class="btn" href="{{ url_for('quiz', date=set_info.date) }}">开始答题</a>
+    <a class="btn btn-ghost" href="{{ url_for('history') }}">返回历史</a>
+</div>
+{% endblock %}

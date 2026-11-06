@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}导入结果{% endblock %}
+{% block content %}
+<h1 class="page-title">导入结果 · {{ date }}</h1>
+
+<div class="stat-row">
+    <div class="stat"><div class="stat-num">{{ result.total_sets }}</div><div class="stat-label">套数</div></div>
+    <div class="stat"><div class="stat-num">{{ result.total_questions }}</div><div class="stat-label">题目总数</div></div>
+    <div class="stat"><div class="stat-num">{{ result.distribution.single }}</div><div class="stat-label">单选题</div></div>
+    <div class="stat"><div class="stat-num">{{ result.distribution.multiple }}</div><div class="stat-label">多选题</div></div>
+    <div class="stat"><div class="stat-num">{{ result.distribution.judge }}</div><div class="stat-label">判断题</div></div>
+    <div class="stat {% if result.failed %}stat-bad{% else %}stat-ok{% endif %}">
+        <div class="stat-num">{{ result.failed | length }}</div><div class="stat-label">导入失败</div>
+    </div>
+</div>
+
+{% if result.failed %}
+    <h2 class="section-title">导入失败题目</h2>
+    <table class="table">
+        <thead><tr><th>套号</th><th>题型</th><th>题干</th><th>错误原因</th></tr></thead>
+        <tbody>
+            {% for f in result.failed %}
+                <tr>
+                    <td>第{{ f.set_index }}套</td>
+                    <td>{{ f.type }}</td>
+                    <td>{{ f.question }}</td>
+                    <td class="err">{{ f.errors | join('；') }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="ok">🎉 全部题目导入成功，无失败题目。</p>
+{% endif %}
+
+<div class="btn-row">
+    <a class="btn" href="{{ url_for('quiz', date=date) }}">开始答题</a>
+    <a class="btn btn-ghost" href="{{ url_for('import_page') }}">再导入一套</a>
+    <a class="btn btn-ghost" href="{{ url_for('index') }}">返回首页</a>
+</div>
+{% endblock %}

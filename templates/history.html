@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}历史日期{% endblock %}
+{% block content %}
+<h1 class="page-title">历史日期</h1>
+<p class="muted">查看所有题目日期，支持补做未完成题目与回顾历史。</p>
+
+{% if sets %}
+    <table class="table">
+        <thead>
+            <tr><th>日期</th><th>标题</th><th>题数</th><th>状态</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+            {% for s in sets %}
+                <tr>
+                    <td>{{ s.date }}</td>
+                    <td>{{ s.title }}</td>
+                    <td>{{ s.total_sets }}</td>
+                    <td>{% if s.completed %}<span class="tag tag-ok">已完成</span>{% else %}<span class="tag">未完成</span>{% endif %}</td>
+                    <td class="row-actions">
+                        <a href="{{ url_for('quiz', date=s.date) }}">{% if s.completed %}补做/重做{% else %}答题{% endif %}</a>
+                        <a href="{{ url_for('date_detail', date=s.date) }}">查看题目</a>
+                        <a href="{{ url_for('score_detail', date=s.date) }}">成绩</a>
+                        <a href="{{ url_for('export_questions', date=s.date) }}">导出</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    {% if current_user.role == 'admin' %}
+        <p class="muted">暂无题目记录，先去 <a href="{{ url_for('import_page') }}">导入题目</a> 吧。</p>
+    {% else %}
+        <p class="muted">暂无题目记录。</p>
+    {% endif %}
+{% endif %}
+{% endblock %}
