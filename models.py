@@ -521,6 +521,8 @@ def init_db() -> None:
     try:
         conn.executescript(schema)
         _migrate(conn)
+        # 清掉历史「自动建库」写入的系统文案，避免它出现在前台题库卡片上
+        _clear_legacy_bank_desc(conn)
         # 升级为「独立 admin 表」时，把 users 里遗留的 admin 账号平滑搬过去
         migrate_admin_accounts(conn)
         # 幂等回填：升级到排行榜版本前的历史成绩也要能进榜
@@ -538,6 +540,27 @@ def init_db() -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# 旧版「题库导入」自动建库时写入的简介文案：会原样渲染在前台认证页的题库卡片上，
+# 属于系统内部信息。新数据已不再写入，这里负责把历史数据清空（幂等）。
+LEGACY_AUTO_BANK_DESC = "由后台「题库导入」自动创建"
+
+
+def _clear_legacy_bank_desc(conn: db.Connection) -> int:
+    """清空历史自动建库残留的系统文案。
+
+    Args:
+        conn: 已打开的数据库连接，复用 ``init_db`` 的事务，不在此提交。
+
+    Returns:
+        受影响行数；重复执行返回 0。
+    """
+    cursor = conn.execute(
+        "UPDATE question_banks SET description = '' WHERE description = ?",
+        (LEGACY_AUTO_BANK_DESC,),
+    )
+    return int(cursor.rowcount or 0)
 
 
 def _column_names(conn: db.Connection, table: str) -> list[str]:

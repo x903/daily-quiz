@@ -67,6 +67,8 @@ def main() -> None:
     bank_row = mirror["bank"]
     assert bank_row["status"] == "published", "导入后应直接发布"
     assert not mirror["publish_errors"], mirror["publish_errors"]
+    # 自动建库不得写入「由后台导入自动创建」这类系统文案：它会原样渲染到前台卡片
+    assert bank_row["description"] == "", bank_row["description"]
     assert practice_bank.count_bank_questions(cat_id) == 100, "模拟题库题量应为 100"
 
     listed = practice_bank.list_banks(cert_path=cat["path_slug"])

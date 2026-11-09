@@ -936,7 +936,6 @@ def import_questions(bank_id: int, text: str, fmt: str = "markdown") -> dict:
 # ---------------------------------------------------------------------------
 # 每日答题题源：直接复用「模拟题库」（只取 published 状态）
 # ---------------------------------------------------------------------------
-IMPORT_BANK_DESC = "由后台「题库导入」自动创建"
 IMPORT_BANK_CREATOR = "system:import"
 
 
@@ -1116,7 +1115,9 @@ def import_paper_as_bank(
         "cert_path": category["path_slug"],
         "level_tag": "基础",
         "difficulty": "中等",
-        "description": IMPORT_BANK_DESC,
+        # 自动建库不写「系统生成」类文案：它会原样渲染在前台认证页的题库卡片上，
+        # 对用户没有信息量。留空即可，管理员可在后台「题库管理」补真正的简介。
+        "description": "",
         "rule_code": RULE_CODE_CUSTOM,
         "total_questions": len(valid),
         "single_count": single,

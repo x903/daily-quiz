@@ -185,7 +185,9 @@
                     <h4 class="bank-name">
                         <a href="{{ url_for('site.practice_bank_page', slug=bank.slug) }}">{{ bank.name }}</a>
                     </h4>
-                    <p class="bank-desc">{{ bank.description or bank.cert_name }}</p>
+                    {% if bank.description %}
+                    <p class="bank-desc">{{ bank.description }}</p>
+                    {% endif %}
                     <div class="bank-meta">
                         <span class="bank-total">共 <b>{{ bank.question_count }}</b> 题</span>
                         <span>{{ bank.single_count }} 单选 · {{ bank.multiple_count }} 多选</span>

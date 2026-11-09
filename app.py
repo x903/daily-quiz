@@ -116,6 +116,13 @@ app.config["SESSION_COOKIE_SECURE"] = runtime.env_flag(
 app.config["SITE_BASE_URL"] = (os.environ.get("SITE_BASE_URL") or "").strip()
 app.config["CSRF_TRUSTED_ORIGINS"] = (os.environ.get("CSRF_TRUSTED_ORIGINS") or "").strip()
 
+# 生产环境强制关闭 debug：Flask 在构造时会读取 FLASK_DEBUG 环境变量，一旦它被写进
+# .env 或 compose（本地调试后忘记删），gunicorn 下同样会打开异常透传与调试中间件。
+# 这里按「生产判定」（DB_BACKEND=mysql / APP_ENV=production）兜底关掉，不给线上留口子。
+if runtime.is_production():
+    app.debug = False
+    app.config["DEBUG"] = False
+
 # 请求体上限：题库导入是纯 Markdown，8MB 足够；未设上限时单个超大请求就能把小内存
 # 容器（256MB）打到 OOM。表单字段单独放宽到 2MB，兼容「覆盖导入」回填的 pending_content。
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB") or 8) * 1024 * 1024
