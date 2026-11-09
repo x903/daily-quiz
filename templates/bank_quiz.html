@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ bank.name }} · 模拟答题 - 认证题库网{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='practice.css', v=asset_version) }}">
+{% endblock %}
+{% block content %}
+<div class="bank-exam" id="bank-exam"
+     data-bank='{{ bank|tojson }}'
+     data-session="{{ session_token }}"
+     data-logged-in="{{ '1' if user_id else '0' }}"
+     data-bank-status="{{ bank_status }}">
+
+    <header class="bank-exam-head" id="exam-head">
+        <div class="bank-exam-crumb">
+            <a href="/cert/{{ bank.cert_path }}">← 返回 {{ bank.cert_name }}</a>
+            <span class="bank-exam-crumb-sep">·</span>
+            <span>模拟答题</span>
+        </div>
+        <div class="bank-exam-titlebar">
+            <div class="bank-exam-title">
+                <h1>{{ bank.name }}</h1>
+                <p>
+                    当前题库：<b>{{ bank.name }}</b>
+                    <span class="bank-exam-sep">|</span>
+                    第 <b id="exam-index">1</b>/{{ bank.question_count }} 题
+                </p>
+            </div>
+            <div class="bank-exam-side">
+                <div class="bank-clock" id="exam-clock" aria-live="polite">--:--</div>
+                <span class="bank-clock-label">剩余时间</span>
+            </div>
+        </div>
+        <div class="bank-exam-bar"><i id="exam-progress" style="width:0%"></i></div>
+        <div class="bank-exam-meta">
+            <span>{{ bank.single_count }} 单选 · {{ bank.multiple_count }} 多选</span>
+            <span>满分 {{ bank.total_score|int }} 分</span>
+            <span>{{ bank.pass_score|int }} 分合格</span>
+            <span>{{ bank.duration_minutes }} 分钟</span>
+        </div>
+    </header>
+
+    <div id="exam-loading" class="bank-state-panel">
+        <span class="bank-spinner"></span>
+        正在加载试卷与作答进度…
+    </div>
+
+    <div id="exam-gate" class="bank-state-panel" hidden>
+        <h2 id="gate-title">登录后开始练习</h2>
+        <p id="gate-text">练习进度、成绩与错题需要绑定账号保存。</p>
+        <div class="bank-state-actions">
+            <a class="btn btn-primary" id="gate-login" href="{{ url_for('login', next=request.path) }}">去登录</a>
+            <a class="btn btn-ghost" href="{{ url_for('site.practice_page') }}">返回题库目录</a>
+        </div>
+    </div>
+
+    <div id="exam-error" class="bank-state-panel" hidden>
+        <h2>试卷加载失败</h2>
+        <p id="exam-error-text"></p>
+        <div class="bank-state-actions">
+            <button type="button" class="btn" id="exam-retry">重新加载</button>
+            <a class="btn btn-ghost" href="{{ url_for('site.practice_page') }}">返回题库目录</a>
+        </div>
+    </div>
+
+    <div class="bank-exam-layout" id="exam-layout" hidden>
+        <main class="bank-question-panel">
+            <div class="bank-q-head">
+                <span class="q-type" id="q-type">单选题</span>
+                <span class="tag" id="q-difficulty">中等</span>
+                <span class="bank-q-seq" id="q-seq">第 1 题 / 共 {{ bank.question_count }} 题</span>
+            </div>
+            <h2 class="bank-q-stem" id="q-stem"></h2>
+            <div class="bank-options" id="q-options"></div>
+            <div class="bank-q-actions">
+                <button type="button" class="btn btn-ghost" id="q-prev">上一题</button>
+                <button type="button" class="btn btn-ghost" id="q-next">下一题</button>
+                <button type="button" class="btn btn-primary" id="q-submit">交卷并查看解析</button>
+                <span class="bank-save-hint" id="save-hint"></span>
+            </div>
+            <p class="bank-q-tip">单选点击即选中；多选需选完所有正确项。答案会在切换题目时自动保存。</p>
+        </main>
+
+        <aside class="bank-sheet">
+            <div class="bank-sheet-head">
+                <h2>答题卡</h2>
+                <span id="sheet-progress" title="已作答 / 总题数">已答 0/{{ bank.question_count }}</span>
+            </div>
+            <div class="bank-sheet-grid" id="sheet-grid"></div>
+            <div class="bank-sheet-legend">
+                <span><i class="is-current"></i>当前</span>
+                <span><i class="is-answered"></i>已答</span>
+                <span><i></i>未答</span>
+            </div>
+            <button type="button" class="btn btn-primary bank-sheet-submit" id="sheet-submit">交卷并查看解析</button>
+            <p class="bank-sheet-tip">交卷后不可修改答案；倒计时结束系统自动交卷。</p>
+        </aside>
+    </div>
+
+    <div id="exam-result" class="bank-result" hidden></div>
+</div>
+
+<div class="bank-confirm" id="submit-confirm" hidden>
+    <div class="bank-confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <h2 id="confirm-title">确认交卷？</h2>
+        <p id="confirm-text"></p>
+        <div class="bank-confirm-actions">
+            <button type="button" class="btn btn-ghost" id="confirm-cancel">继续答题</button>
+            <button type="button" class="btn btn-primary" id="confirm-submit">确认交卷</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='bank_quiz.js', v=asset_version) }}"></script>
+{% endblock %}

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}导入结果{% endblock %}
 {% block content %}
 <h1 class="page-title">导入结果 · {{ date }}</h1>
@@ -36,8 +36,7 @@
 {% endif %}
 
 <div class="btn-row">
-    <a class="btn" href="{{ url_for('quiz', date=date) }}">开始答题</a>
-    <a class="btn btn-ghost" href="{{ url_for('import_page') }}">再导入一套</a>
-    <a class="btn btn-ghost" href="{{ url_for('index') }}">返回首页</a>
+    <a class="btn" href="{{ url_for('admin_dashboard') }}#sets">查看题库列表</a>
+    <a class="btn btn-ghost" href="{{ url_for('import_page') }}">继续导入</a>
 </div>
 {% endblock %}

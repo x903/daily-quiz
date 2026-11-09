@@ -4,5 +4,7 @@ Flask>=3.0,<4
 # MySQL 驱动；cryptography 用于 MySQL 8 默认的 caching_sha2_password 认证
 PyMySQL>=1.1,<2
 cryptography>=41
+# 登录验证码 / 失败计数 / 账号锁定缓存（多 worker 共享）
+redis>=5,<7
 # 生产 WSGI 服务器（Dockerfile 使用；本地 python app.py 不需要）
 gunicorn>=21,<27

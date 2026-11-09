@@ -5,11 +5,13 @@
 # ============================================================================
 FROM python:3.12-slim
 
+# MALLOC_ARENA_MAX：glibc 默认按 CPU 数开 arena，小内存机器上容易碎片化吃内存
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    TZ=Asia/Shanghai
+    TZ=Asia/Shanghai \
+    MALLOC_ARENA_MAX=2
 
 WORKDIR /app
 
@@ -40,11 +42,18 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # --preload：在 master 进程里先完成 init_db() / 默认账号播种，再 fork worker，
 # 避免多个 worker 并发建表或并发插入默认账号触发唯一键冲突。
+# 1 核 1G 机器上 1 worker + 4 线程（gthread）比 2 个同步 worker 更省内存：
+# 每个 worker 都是一份完整 Python 解释器，多开一个就多 ~40MB。
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:5000", \
-     "--workers", "2", \
+     "--workers", "1", \
+     "--threads", "4", \
+     "--worker-class", "gthread", \
      "--preload", \
      "--timeout", "120", \
+     "--graceful-timeout", "30", \
+     "--max-requests", "2000", \
+     "--max-requests-jitter", "200", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \
      "app:app"]

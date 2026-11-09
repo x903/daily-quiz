@@ -1,18 +1,19 @@
-"""回归测试：题目导入选择栏目 + 「阿里云认证」栏目页聚合 + 历史日期栏目下线。
+"""回归测试：旧版「按日期导入」与三级认证分类的绑定关系。
 
 全程使用独立临时数据库，不触碰正在运行的 data/quiz.db。
 
 覆盖：
-1. navigation 栏目树 / 路径 / 子孙聚合等复用接口；
-2. 导入页渲染配置驱动的三级选择器；
-3. 选择「阿里云认证 › 阿里云ACP › 云计算高级工程师」导入正确落库；
-4. 空栏目 / 伪造 slug 被拒绝；配置树内任意合法节点允许导入；
-5. 栏目页按「自身 + 子孙」聚合题目，兄弟栏目互不串题；
-6. 首页 / 后台 / 导出携带栏目信息；
-7. 编辑页可改栏目、留空保持原值、非法值整体拒绝；
-8. 动态注册新 ACP 方向后选择器与栏目页自动生效，菜单节点移除后路径快照仍可读；
-9. 历史日期栏目彻底下线（路由 404 / 导航与返回链接清理）；
-10. 权限：普通用户不能导入，但可浏览栏目页。
+1. navigation 栏目树 / 路径 / 子孙聚合等遗留接口仍然可用；
+2. 导入页渲染配置驱动的三级栏目选择器；
+3. 选择「阿里云ACP › 云计算高级工程师」导入后，题目同时落到按日期题库与
+   cert_categories，认证页与每日答题都能看到；
+4. 空栏目 / 伪造 slug 被拒绝；中间节点可导入但不挂到具体认证；
+5. 兄弟认证互不串题，未导入题目的认证显示建设中；
+6. 首页 / 后台列表 / 导出 JSON 均携带栏目信息；
+7. 编辑页改栏目后，题目跟着迁移到新认证分类；
+8. 重复初始化幂等：分类与介绍不会重复播种；
+9. 历史日期栏目彻底下线（/history 404，日期页返回首页）；
+10. 权限：普通用户不能导入，但可浏览认证页。
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ models.DB_PATH = _TMP_DIR / "quiz.db"
 
 from app import app  # noqa: E402
 import auth  # noqa: E402
+import bank  # noqa: E402
 import navigation  # noqa: E402
 import admin_logic  # noqa: E402
 
@@ -38,12 +40,16 @@ MD_TEXT = SRC.read_text(encoding="utf-8")
 
 D_CLOUD = "2026-11-10"
 D_ACA = "2026-11-11"
-D_BIGDATA = "2026-11-12"
+D_MID = "2026-11-14"
 CLOUD_SLUG = "acp-cloud-computing"
+CLOUD_PATH = "aliyun/acp/cloud"
+ACA_PATH = "aliyun/aca"
 
 
 def login(client, username: str, password: str) -> None:
-    r = client.post("/login", data={"username": username, "password": password})
+    import test_support
+    # 用例会用管理员身份顺带访问用户端认证页，因此同时挂上普通用户会话
+    r = test_support.login(client, username, password, with_user_session=True)
     assert r.status_code == 302, f"{username} 登录失败"
 
 
@@ -63,6 +69,11 @@ def upload(client, date_str: str, slug: str = CLOUD_SLUG, title: str = "测试�
 
 def set_row(date_str: str):
     return models.get_daily_set_by_date(date_str)
+
+
+def count_in(path: str) -> int:
+    category = bank.get_category_by_path(path)
+    return bank.count_questions(category["id"]) if category else -1
 
 
 def edit_form(date_str: str, title: str = "改后标题"):
@@ -87,7 +98,7 @@ try:
     admin = app.test_client()
     login(admin, "admin", "admin123")
 
-    # 1) 配置树复用接口
+    # ---------------------------------------------------------------- 1) 遗留栏目接口
     tree = navigation.category_tree_payload()
     assert tree[0]["slug"] == "aliyun-cert"
     acp = next(n for n in tree[0]["children"] if n["slug"] == "acp")
@@ -99,18 +110,18 @@ try:
     assert navigation.descendant_slugs("aliyun-cert") and not navigation.descendant_slugs("nope")
     assert navigation.is_valid_category(CLOUD_SLUG) and not navigation.is_valid_category("")
     assert not navigation.is_valid_category("../../etc")
-    print("1) 配置树 / 路径快照 / 子孙聚合 / 合法性校验接口正确 ✅")
+    print("1) 遗留栏目树 / 路径快照 / 子孙聚合 / 合法性校验接口仍可用 ✅")
 
-    # 2) 导入页渲染三级选择器
+    # ---------------------------------------------------------------- 2) 导入页选择器
     body = admin.get("/import").get_data(as_text=True)
     assert "导入栏目" in body and "data-category-picker" in body
     assert 'name="category_slug"' in body and 'data-required="1"' in body
     assert CLOUD_SLUG in body, "选择器数据树应包含三级栏目"
     assert "/static/category_picker.js" in body
-    assert body.count('data-cat-level=') == 3, "应有三级联动下拉"
+    assert body.count("data-cat-level=") == 3, "应有三级联动下拉"
     print("2) 导入页含配置驱动的三级栏目选择器 ✅")
 
-    # 3) 选择 ACP › 云计算高级工程师 导入
+    # ---------------------------------------------------------------- 3) 导入并挂接
     r = upload(admin, D_CLOUD)
     assert r.status_code == 200 and "导入结果" in r.get_data(as_text=True)
     row = set_row(D_CLOUD)
@@ -118,9 +129,18 @@ try:
     assert row["category_path"] == "阿里云认证 › 阿里云ACP › 云计算高级工程师"
     assert len(models.get_all_questions_by_set(row["id"])) == 20
     assert "云计算高级工程师" in r.get_data(as_text=True)
-    print("3) 选择三级栏目导入 20 题，slug 与路径快照正确落库 ✅")
+    assert count_in(CLOUD_PATH) == 20, "导入的题目应挂到三级认证分类"
 
-    # 4) 空栏目 / 伪造 slug 被拒绝；树内中间节点合法
+    cloud_page = admin.get("/cert/aliyun/acp/cloud").get_data(as_text=True)
+    # 认证页不再平铺题目，题量以首屏汇总数字呈现
+    assert '<span class="leaf-score-num">20</span>' in cloud_page
+    assert "道题可练" in cloud_page
+    r = admin.post("/api/quiz/start", json={"category": CLOUD_PATH})
+    assert r.status_code == 200, r.get_json()
+    assert r.get_json()["data"]["pool"] == "category", "挂接后应直接用本认证题库"
+    print("3) 选择三级栏目导入 20 题：按日期题库 + 认证分类双写，可直接开始答题 ✅")
+
+    # ---------------------------------------------------------------- 4) 非法栏目
     r_empty = upload(admin, "2026-11-13", slug="")
     assert r_empty.status_code == 302, "空栏目应重定向回导入页"
     assert "请选择完整的导入栏目" in admin.get("/import").get_data(as_text=True)
@@ -129,38 +149,41 @@ try:
     assert r_bad.status_code == 302
     assert "请选择完整的导入栏目" in admin.get("/import").get_data(as_text=True)
     assert set_row("2026-11-13") is None, "伪造 slug 不应落库"
-    r_mid = upload(admin, "2026-11-14", slug="acp")
-    assert r_mid.status_code == 200 and set_row("2026-11-14")["category_slug"] == "acp"
-    print("4) 空栏目 / 伪造 slug 被拒绝且不落库；树内合法节点可导入 ✅")
+    r_mid = upload(admin, D_MID, slug="acp")
+    assert r_mid.status_code == 200 and set_row(D_MID)["category_slug"] == "acp"
+    assert count_in(CLOUD_PATH) == 20, "中间节点没有具体认证，不应挂到任何认证页"
+    print("4) 空栏目 / 伪造 slug 被拒绝；中间节点可导入但只保留栏目快照 ✅")
 
-    # 5) 栏目页聚合（父级含子级，兄弟栏目互不串题）
+    # ---------------------------------------------------------------- 5) 兄弟隔离
     upload(admin, D_ACA, slug="aca", title="ACA 入门题库")
-    acp_page = admin.get("/certification/acp").get_data(as_text=True)
-    assert D_CLOUD in acp_page and "测试题库" in acp_page, "ACP 页应聚合三级方向题库"
-    assert D_ACA not in acp_page, "ACP 页不应出现 ACA 题库"
-    root_page = admin.get("/certification").get_data(as_text=True)
-    assert D_CLOUD in root_page and D_ACA in root_page, "总览应聚合全部认证题库"
-    aca_page = admin.get("/certification/aca").get_data(as_text=True)
-    assert D_ACA in aca_page and D_CLOUD not in aca_page
-    leaf_page = admin.get(f"/certification/{CLOUD_SLUG}").get_data(as_text=True)
-    assert D_CLOUD in leaf_page and "本栏目题库" in leaf_page
-    print("5) 栏目页按自身 + 子孙聚合题目，兄弟栏目互不串题 ✅")
+    assert count_in(ACA_PATH) == 20 and count_in(CLOUD_PATH) == 20
+    llm = bank.get_category_by_path("aliyun/acp/llm")
+    assert bank.count_questions(llm["id"]) == 0
+    aca_page = admin.get("/cert/aliyun/aca").get_data(as_text=True)
+    assert '<span class="leaf-score-num">20</span>' in aca_page
+    llm_page = admin.get("/cert/aliyun/acp/llm").get_data(as_text=True)
+    assert "暂时还没有模拟题库" in llm_page, "未导入题目的认证应提示建设中"
+    assert '<span class="leaf-score-num">20</span>' not in llm_page
+    print("5) 两套日期题库分别挂到 ACA / ACP 云计算，兄弟认证互不串题 ✅")
 
-    # 6) 首页 / 后台 / 导出携带栏目
-    assert "云计算高级工程师" in admin.get("/").get_data(as_text=True)
-    assert "云计算高级工程师" in admin.get("/admin").get_data(as_text=True)
+    # ---------------------------------------------------------------- 6) 栏目信息透出
+    home = admin.get("/").get_data(as_text=True)
+    assert "云计算高级工程师" in home
+    sets_payload = admin.get("/api/admin/sets").get_json()
+    assert sets_payload["ok"] and "云计算高级工程师" in str(sets_payload["data"])
     exported = json.loads(admin.get(f"/export/questions/{D_CLOUD}").get_data(as_text=True))
     assert exported["category_slug"] == CLOUD_SLUG
     assert exported["category_path"].endswith("云计算高级工程师")
     print("6) 首页 / 后台列表 / 导出 JSON 均携带栏目信息 ✅")
 
-    # 7) 编辑页：改栏目、留空保持、非法值拒绝
+    # ---------------------------------------------------------------- 7) 编辑页迁栏目
     form = edit_form(D_CLOUD)
     form["category_slug"] = "aca"
     r_edit = admin.post(f"/admin/set/{D_CLOUD}/edit", data=form, follow_redirects=True)
     assert r_edit.status_code == 200
     assert set_row(D_CLOUD)["category_slug"] == "aca", "编辑页应能改栏目"
     assert "阿里云ACA" in set_row(D_CLOUD)["category_path"], "路径快照应同步刷新"
+    assert count_in(ACA_PATH) == 40 and count_in(CLOUD_PATH) == 0, "题目应跟着栏目迁移"
     editor_body = admin.get(f"/admin/set/{D_CLOUD}/edit").get_data(as_text=True)
     assert "data-category-picker" in editor_body and 'data-required="0"' in editor_body
     assert 'value="aca"' in editor_body, "编辑页应回填当前栏目"
@@ -169,39 +192,31 @@ try:
     form2.pop("category_slug", None)
     admin.post(f"/admin/set/{D_CLOUD}/edit", data=form2, follow_redirects=True)
     assert set_row(D_CLOUD)["category_slug"] == "aca", "不提交栏目应保持原归属"
+    assert count_in(ACA_PATH) == 40
 
     form3 = edit_form(D_CLOUD)
     form3["category_slug"] = "nope"
     r_bad_edit = admin.post(f"/admin/set/{D_CLOUD}/edit", data=form3)
     assert "所属栏目不合法" in r_bad_edit.get_data(as_text=True)
     assert set_row(D_CLOUD)["category_slug"] == "aca", "非法栏目不应写入"
-    print("7) 编辑页可改栏目 / 留空保持 / 非法值不落库 ✅")
+    print("7) 编辑页改栏目后题目迁移；留空保持；非法值不落库 ✅")
 
-    # 8) 动态扩展 ACP 方向：选择器与栏目页自动生效
-    original_tree = navigation.CERT_NAV
-    try:
-        navigation.register_acp_direction("acp-bigdata", "大数据高级工程师", "扩展方向占位")
-        assert "acp-bigdata" in admin.get("/import").get_data(as_text=True)
-        r = upload(admin, D_BIGDATA, slug="acp-bigdata", title="大数据方向题库")
-        assert r.status_code == 200 and set_row(D_BIGDATA)["category_slug"] == "acp-bigdata"
-        assert D_BIGDATA in admin.get("/certification/acp").get_data(as_text=True)
-        navigation.CERT_NAV = original_tree
-        # 菜单节点被移除后，历史题库仍保留可读的路径快照
-        assert "大数据高级工程师" in set_row(D_BIGDATA)["category_path"]
-        assert "大数据高级工程师" in admin.get("/").get_data(as_text=True)
-    finally:
-        navigation.CERT_NAV = original_tree
-    print("8) 动态注册方向自动生效；菜单变更后路径快照仍可读 ✅")
+    # ---------------------------------------------------------------- 8) 幂等播种
+    cats_before = len(bank.list_categories())
+    models.init_db()
+    assert len(bank.list_categories()) == cats_before == 34, "重复初始化不应重复播种分类"
+    assert len(bank.list_intros()) == 34
+    assert count_in(ACA_PATH) == 40, "重复初始化不应动题库"
+    print("8) 重复初始化幂等：34 个分类 / 34 条介绍，题库不受影响 ✅")
 
-    # 9) 历史日期栏目彻底下线
+    # ---------------------------------------------------------------- 9) 历史栏目下线
     assert admin.get("/history").status_code == 404
-    home = admin.get("/").get_data(as_text=True)
     assert "历史日期" not in home and "我的成绩与历史" not in home
-    assert "返回历史" not in admin.get(f"/date/{D_CLOUD}").get_data(as_text=True)
-    assert "返回首页" in admin.get(f"/date/{D_CLOUD}").get_data(as_text=True)
-    print("9) /history 404，导航 / 首页卡片 / 返回历史链接均已清理 ✅")
+    date_page = admin.get(f"/date/{D_CLOUD}").get_data(as_text=True)
+    assert "返回首页" in date_page and "返回历史" not in date_page
+    print("9) /history 404，导航 / 日期页返回链接均已清理 ✅")
 
-    # 10) 权限：普通用户不能导入，但可浏览栏目页
+    # ---------------------------------------------------------------- 10) 权限
     anon = app.test_client()
     assert anon.get("/import").status_code == 302
     normal = app.test_client()
@@ -209,10 +224,12 @@ try:
     assert normal.get("/import").status_code == 302
     assert upload(normal, "2026-11-15").status_code == 302
     assert set_row("2026-11-15") is None
-    assert normal.get(f"/certification/{CLOUD_SLUG}").status_code == 200
-    assert "导入题目" not in normal.get(f"/certification/{CLOUD_SLUG}").get_data(as_text=True)
-    print("10) 普通用户不能导入，可正常浏览栏目页且无导入入口 ✅")
+    user_page = normal.get("/cert/aliyun/acp/cloud").get_data(as_text=True)
+    assert "认证介绍" in user_page and "开始每日答题" in user_page
+    for admin_entry in ("导入题目", "题库导入", "/admin/login"):
+        assert admin_entry not in user_page, f"用户端页面不应出现管理入口：{admin_entry}"
+    print("10) 普通用户不能导入，可浏览认证页且导航无管理入口 ✅")
 
-    print("\n全部通过：导入栏目选择、栏目聚合展示与历史日期栏目下线验证完成。")
+    print("\n全部通过：旧版按日期导入与三级认证分类挂接验证完成。")
 finally:
     shutil.rmtree(_TMP_DIR, ignore_errors=True)

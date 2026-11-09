@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='practice.css', v=asset_version) }}">
+{% endblock %}
+{% set diff_rank = {'入门': 1, '进阶': 2, '高级': 3, '专家': 4} %}
+{% block content %}
+<nav class="breadcrumb" aria-label="面包屑">
+    {% for c in crumbs %}
+        {% if not loop.last %}<a href="{{ c.url }}">{{ c.label }}</a><span class="breadcrumb-sep">/</span>
+        {% else %}<span class="breadcrumb-current">{{ c.label }}</span>{% endif %}
+    {% endfor %}
+</nav>
+
+<div class="cert-layout">
+    <div class="cert-main">
+    {% if mode == 'vendor' %}
+        <section class="cert-hero">
+            <span class="eyebrow">{{ vendor.short|upper }} CERTIFICATION</span>
+            <h1>{{ vendor.label }}题库</h1>
+            <p class="cert-hero-sub">{{ vendor.intro }}</p>
+            <div class="meta-chips">
+                <span class="chip"><b>{{ directions|length }}</b> 个方向</span>
+                <span class="chip"><b>{{ leaves|length }}</b> 个认证</span>
+                <span class="chip"><b>{{ total_questions }}</b> 道题</span>
+            </div>
+        </section>
+
+        <section class="cert-section">
+            <div class="section-head">
+                <div><h2>认证方向</h2><p class="muted">按方向查看等级与题库</p></div>
+            </div>
+            <div class="direction-grid">
+                {% for d in directions %}
+                <article class="direction-card">
+                    <header>
+                        <h3><a href="{{ d.url }}">{{ d.label }}</a></h3>
+                        <span class="dir-count">{{ d.question_count }} 题</span>
+                    </header>
+                    {% if d.summary %}<p class="muted">{{ d.summary }}</p>{% endif %}
+                    {% if d.children %}
+                    <ul class="cert-level-list">
+                        {% for leaf in d.children %}
+                        <li>
+                            <a href="{{ leaf.url }}">
+                                <span>{{ leaf.label }}</span>
+                                <em>{{ leaf.count }} 题</em>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <a class="direction-single" href="{{ d.url }}">进入 {{ d.label }} 认证 →</a>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+    {% elif mode == 'direction' %}
+        <section class="cert-hero">
+            <span class="eyebrow">{{ vendor.short|upper }} · {{ direction.label }}</span>
+            <h1>{{ vendor.label }}{{ direction.label }}题库</h1>
+            {% if direction.summary %}<p class="cert-hero-sub">{{ direction.summary }}</p>{% endif %}
+            <div class="meta-chips">
+                <span class="chip"><b>{{ leaves|length }}</b> 个认证</span>
+                <span class="chip"><b>{{ total_questions }}</b> 道题</span>
+            </div>
+        </section>
+
+        <section class="cert-section">
+            <div class="section-head">
+                <div><h2>选择认证等级</h2><p class="muted">每个等级都有独立介绍与题库</p></div>
+            </div>
+            <div class="cert-card-grid">
+                {% for leaf in leaves %}
+                <article class="cert-card">
+                    <header>
+                        <h3><a href="{{ leaf.url }}">{{ leaf.menu_name or leaf.name }}</a></h3>
+                        {% if leaf.exam_code %}<span class="tag">{{ leaf.exam_code }}</span>{% endif %}
+                    </header>
+                    <p class="cert-card-name">{{ leaf.cert_name }}</p>
+                    <p class="muted clamp-2">{{ leaf.summary }}</p>
+                    <footer>
+                        <span class="diff-tag diff-{{ diff_rank.get(leaf.difficulty, 2) }}">{{ leaf.difficulty }}</span>
+                        <a href="{{ leaf.url }}">进入题库 →</a>
+                    </footer>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+    {% else %}
+        <section class="cert-hero cert-hero-leaf">
+            <div class="leaf-head">
+                <div>
+                    <span class="eyebrow">{{ leaf.vendor_short }} · {{ leaf.direction_name }}</span>
+                    <h1>{{ category.cert_name }}题库</h1>
+                    <p class="cert-hero-sub">{{ intro.summary or leaf.summary }}</p>
+                </div>
+                <div class="leaf-score">
+                    {% set pool_total = [bank_total or 0, summary.question_count or 0]|max %}
+                    <span class="leaf-score-num">{{ pool_total }}</span>
+                    <span class="leaf-score-label">道题可练</span>
+                </div>
+            </div>
+            <div class="meta-chips">
+                {% if category.exam_code %}<span class="chip">考试代码 <b>{{ category.exam_code }}</b></span>{% endif %}
+                <span class="chip">难度 <b>{{ difficulty }}</b></span>
+                <span class="chip">每题 <b>10</b> 分 · 满分 <b>100</b></span>
+                {% if summary.mine %}<span class="chip chip-ok">我的最佳 <b>{{ summary.mine.best }}</b> 分 / {{ summary.mine.times }} 次</span>{% endif %}
+            </div>
+            <div class="hero-actions">
+                <a class="btn btn-lg" href="{{ url_for('site.daily_quiz_page', category=category.path_slug) }}">开始每日答题</a>
+                {% if banks %}
+                <a class="btn btn-ghost btn-lg" href="#bank-list">查看模拟题库</a>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="intro-card">
+            <header class="intro-head">
+                <h2>认证介绍</h2>
+                {% if intro.source %}
+                <span class="tag">资料来源：{{ intro.source }}</span>
+                {% endif %}
+            </header>
+            <div class="intro-grid">
+                <div class="intro-item">
+                    <h3><i>◎</i>认证定位</h3>
+                    <p>{{ intro.positioning }}</p>
+                </div>
+                <div class="intro-item">
+                    <h3><i>☺</i>适合人群</h3>
+                    <p>{{ intro.audience }}</p>
+                </div>
+                <div class="intro-item">
+                    <h3><i>▤</i>考试方向</h3>
+                    <p>{{ intro.exam_topics }}</p>
+                </div>
+                <div class="intro-item">
+                    <h3><i>◈</i>难度</h3>
+                    <p class="intro-diff">
+                        <span class="diff-tag diff-{{ diff_rank.get(difficulty, 2) }}">{{ difficulty }}</span>
+                        <span class="diff-meter">
+                            {% for lv in ['入门', '进阶', '高级', '专家'] %}
+                            <i class="{% if loop.index <= diff_rank.get(difficulty, 2) %}on{% endif %}"></i>
+                            {% endfor %}
+                        </span>
+                    </p>
+                </div>
+                <div class="intro-item intro-wide">
+                    <h3><i>✎</i>备考建议</h3>
+                    <p>{{ intro.advice }}</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="cert-section" id="bank-list">
+            <div class="section-head">
+                <div>
+                    <h2>模拟题库</h2>
+                    <p class="muted">
+                        {% if banks %}
+                        共 {{ banks|length }} 套 · {{ bank_total }} 道题 · 按真实考试规则计时判分
+                        {% else %}
+                        该认证的模拟题库正在建设中
+                        {% endif %}
+                    </p>
+                </div>
+                <a class="link-arrow" href="{{ url_for('site.daily_quiz_page', category=category.path_slug) }}">随机练 10 题 →</a>
+            </div>
+            {% if banks %}
+            <div class="bank-grid bank-grid-cert">
+                {% for bank in banks %}
+                <article class="bank-card">
+                    <div class="bank-card-tags">
+                        <span class="bank-tag bank-tag-{{ bank.level_tag }}">{{ bank.level_tag }}</span>
+                        {% if bank.is_mock %}
+                        <span class="bank-tag bank-tag-mock">全真模拟</span>
+                        {% else %}
+                        <span class="bank-tag bank-tag-drill">专项训练</span>
+                        {% endif %}
+                        <span class="bank-difficulty">难度 {{ bank.difficulty }}</span>
+                    </div>
+                    <h4 class="bank-name">
+                        <a href="{{ url_for('site.practice_bank_page', slug=bank.slug) }}">{{ bank.name }}</a>
+                    </h4>
+                    <p class="bank-desc">{{ bank.description or bank.cert_name }}</p>
+                    <div class="bank-meta">
+                        <span class="bank-total">共 <b>{{ bank.question_count }}</b> 题</span>
+                        <span>{{ bank.single_count }} 单选 · {{ bank.multiple_count }} 多选</span>
+                        <span>{{ bank.duration_minutes }} 分钟</span>
+                        <span>{{ bank.pass_score|int }} 分合格</span>
+                    </div>
+                    {% if bank.progress.started %}
+                    <div class="bank-progress">
+                        <div class="bank-progress-bar"><i style="width: {{ bank.progress.percent }}%"></i></div>
+                        <span>已练 {{ bank.progress.answered_count }}/{{ bank.question_count }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="bank-card-foot">
+                        <div class="bank-state">
+                            {% if bank.progress.has_wrong %}
+                            <span class="bank-state-dot is-wrong"></span>
+                            <span class="bank-wrong">错题 {{ bank.progress.wrong_count }}</span>
+                            {% elif bank.progress.started %}
+                            <span class="bank-state-dot is-done"></span>
+                            <span>最佳 {{ bank.progress.best_score|int }} 分</span>
+                            {% else %}
+                            <span class="bank-state-dot"></span>
+                            <span class="muted">尚未开始</span>
+                            {% endif %}
+                        </div>
+                        <a class="bank-enter" href="{{ url_for('site.practice_bank_page', slug=bank.slug) }}">
+                            {{ '继续练习' if bank.progress.started else '开始练习' }}
+                        </a>
+                    </div>
+                    {% if bank.updated_at %}
+                    <span class="bank-updated">更新于 {{ bank.updated_at[:10] }}</span>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-box">
+                <h3>暂时还没有模拟题库</h3>
+                {% if current_admin %}
+                <p class="muted">在后台「模拟题库」里创建并发布后，会自动出现在这个认证页。</p>
+                <a class="btn btn-sm" href="{{ url_for('admin_dashboard') }}#practice">前往后台创建</a>
+                {% else %}
+                <p class="muted">该认证的模拟题正在补充中，可以先去练同方向的其他认证，或做每日答题。</p>
+                <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page', category=category.path_slug) }}">先做每日答题</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
+
+        {% if related %}
+        <section class="cert-section">
+            <div class="section-head"><div><h2>相关认证</h2><p class="muted">同厂商的其他进阶路线</p></div></div>
+            <div class="related-grid">
+                {% for item in related %}
+                <a class="related-card" href="{{ item.url }}">
+                    <span class="related-name">{{ item.name }}</span>
+                    <span class="related-meta">{{ item.difficulty }} · {{ item.count }} 题</span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    {% endif %}
+    </div>
+
+    <aside class="cert-side">
+        {% include "_ranking_card.html" with context %}
+        <div class="side-card side-cta">
+            <h3>每日 10 题，坚持就有提升</h3>
+            <p class="muted">随机抽题、即时判分、逐题解析，答题记录自动进入日 / 周 / 月榜。</p>
+            <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">去答题</a>
+        </div>
+    </aside>
+</div>
+{% endblock %}

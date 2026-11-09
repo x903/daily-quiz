@@ -1,7 +1,7 @@
 """权限与角色端到端测试（使用 Flask test client，无需启动服务器）。
 
 覆盖：
-- 未登录仅能访问 /login、/register；
+- 未登录可浏览首页 / 排行榜 / 认证栏目（200），但答题与个人数据需登录；
 - 管理员可进入 /admin、/import；
 - 普通用户访问后台被拦截（302）；
 - 答题成绩与错题正确归属到当前用户；
@@ -11,40 +11,41 @@ import json
 
 import auth
 import models
+import test_support
 import wrong_book
 from app import app
 
 models.init_db()
 auth.create_default_users()
 
-admin = models.get_user_by_username("admin")
+# 管理员账号现在位于独立的 admin 表，与 users 表彻底分开
+admin = models.get_admin_by_username("admin")
 user = models.get_user_by_username("user")
 assert admin and user, "默认账号未就绪"
 
 
-def set_session(sess, u):
-    sess["user_id"] = u["id"]
-    sess["username"] = u["username"]
-    sess["role"] = u["role"]
+def set_session(sess, u, *, is_admin=False):
+    test_support.set_session(sess, u, is_admin=is_admin)
 
 
 print("=== 未登录访问控制 ===")
 c = app.test_client()
-assert c.get("/").status_code == 302
+assert c.get("/").status_code == 200, "未登录也应能浏览首页"
+assert c.get("/leaderboard").status_code == 200, "未登录也应能浏览排行榜"
 assert c.get("/admin").status_code == 302
 assert c.get("/login").status_code == 200
 assert c.get("/register").status_code == 200
-print("  GET / -> 302, /admin -> 302, /login & /register -> 200  ✅")
+print("  GET / 与 /leaderboard -> 200, /admin -> 302, /login & /register -> 200  ✅")
 
 print("=== 登录流程 ===")
-r = c.post("/login", data={"username": "admin", "password": "admin123"}, follow_redirects=False)
+r = test_support.login(c, "admin", "admin123")
 assert r.status_code == 302, r.status_code
-print("  管理员登录 -> 302  ✅")
+print("  管理员独立登录 /admin/login -> 302  ✅")
 
 print("=== 管理员后台访问 ===")
 with app.test_client() as c2:
     with c2.session_transaction() as s:
-        set_session(s, admin)
+        set_session(s, admin, is_admin=True)
     assert c2.get("/admin").status_code == 200
     assert c2.get("/import").status_code == 200
     assert c2.get("/admin/users").status_code == 200

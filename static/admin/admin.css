@@ -1,0 +1,172 @@
+/* 独立管理端样式：不依赖用户端 style.css，布局与导航完全自成一套 */
+:root {
+    --a-primary: #2f6bff;
+    --a-primary-dark: #1f4fd0;
+    --a-side: #17233d;
+    --a-side-soft: #22304f;
+    --a-bg: #f4f6fb;
+    --a-card: #ffffff;
+    --a-border: #e3e8f2;
+    --a-text: #1b2438;
+    --a-muted: #6b7690;
+    --a-danger: #d64545;
+    --a-ok: #1e9c68;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.6 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: var(--a-text); background: var(--a-bg); }
+button, input, select, textarea { font: inherit; }
+a { color: var(--a-primary); text-decoration: none; }
+
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 232px; flex: 0 0 232px; background: var(--a-side); color: #dce4f5; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 22px 20px 4px; font-size: 17px; font-weight: 700; color: #fff; }
+.brand-icon { font-size: 20px; }
+.side-caption { padding: 0 20px 18px; font-size: 10px; letter-spacing: 2px; color: #7d8caa; border-bottom: 1px solid rgba(255,255,255,.08); }
+.side-nav { padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.side-nav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; border: 0; border-radius: 8px; background: transparent; color: #c6d1e8; text-align: left; cursor: pointer; transition: .15s; }
+.side-nav button i { font-style: normal; width: 18px; text-align: center; opacity: .85; }
+.side-nav button:hover { background: var(--a-side-soft); color: #fff; }
+.side-nav button.active { background: var(--a-primary); color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(47,107,255,.35); }
+.side-foot { padding: 16px 18px 22px; border-top: 1px solid rgba(255,255,255,.08); }
+.admin-chip { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
+.admin-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #45d39a; }
+.admin-chip .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: rgba(255,255,255,.12); }
+.side-logout { margin-top: 12px; width: 100%; padding: 8px; border: 1px solid rgba(255,255,255,.22); border-radius: 7px; background: transparent; color: #cbd5e8; cursor: pointer; }
+.side-logout:hover { background: rgba(255,255,255,.08); color: #fff; }
+
+.main { flex: 1; min-width: 0; padding: 0 30px 50px; }
+.main-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 0 20px; border-bottom: 1px solid var(--a-border); margin-bottom: 22px; }
+.main-head h1 { margin: 0; font-size: 22px; }
+.main-head .sub { margin: 4px 0 0; color: var(--a-muted); font-size: 13px; }
+.api-tag { font-size: 11px; color: var(--a-muted); background: #eaf0ff; border: 1px solid #d6e2ff; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+.view { min-height: 320px; }
+.loading { padding: 50px; text-align: center; color: var(--a-muted); }
+.toast { position: fixed; top: 22px; right: 26px; z-index: 50; max-width: 420px; padding: 12px 18px; border-radius: 9px; background: #1b2438; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.toast.ok { background: var(--a-ok); }
+.toast.err { background: var(--a-danger); }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.kpi { background: var(--a-card); border: 1px solid var(--a-border); border-radius: 12px; padding: 18px 20px; }
+.kpi .num { font-size: 28px; font-weight: 700; color: var(--a-primary); line-height: 1.2; }
+.kpi .label { color: var(--a-muted); font-size: 12px; margin-top: 4px; }
+.card { background: var(--a-card); border: 1px solid var(--a-border); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+.card h2 { margin: 0 0 14px; font-size: 16px; }
+.card .hint { color: var(--a-muted); font-size: 12px; margin: -6px 0 14px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--a-border); text-align: left; vertical-align: middle; }
+th { color: var(--a-muted); font-weight: 600; background: #fafbfe; white-space: nowrap; }
+tbody tr:hover { background: #f8faff; }
+td.muted, .muted { color: var(--a-muted); }
+.empty { padding: 26px; text-align: center; color: var(--a-muted); }
+
+.btn, .btn-primary, .btn-ghost, .btn-danger, .btn-danger-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 15px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; background: var(--a-primary); color: #fff; font-size: 13px; }
+.btn:hover, .btn-primary:hover { background: var(--a-primary-dark); }
+.btn-ghost { background: #fff; color: var(--a-text); border-color: var(--a-border); }
+.btn-ghost:hover { background: #f2f5fc; }
+.btn-danger { background: var(--a-danger); }
+.btn-danger:hover { background: #b93636; }
+.btn-danger-ghost { background: #fff; color: var(--a-danger); border-color: #f0cccc; }
+.btn-danger-ghost:hover { background: #fdf4f4; border-color: #e3a9a9; }
+.btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 6px; }
+input[type=text], input[type=password], input[type=date], input[type=search], select, textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--a-border); border-radius: 8px;
+    background: #fff; color: var(--a-text); outline: none;
+}
+/* 认证介绍管理：搜索栏与介绍预览列 */
+.intro-search { display: flex; gap: 10px; align-items: center; margin: 0 0 16px; max-width: 620px; }
+.intro-search input[type=search] { flex: 1; }
+.intro-search .btn { flex: 0 0 auto; white-space: nowrap; }
+.intro-cell { max-width: 340px; line-height: 1.55; color: var(--a-muted); }
+input:focus, select:focus, textarea:focus { border-color: var(--a-primary); box-shadow: 0 0 0 3px rgba(47,107,255,.12); }
+textarea { resize: vertical; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; }
+.field-tip { display: block; font-size: 12px; color: var(--a-muted); margin-top: 4px; }
+.notice { padding: 12px 14px; border-radius: 8px; background: #fff8e8; border: 1px solid #f2dfae; font-size: 13px; margin-bottom: 16px; }
+.q-card { border: 1px solid var(--a-border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.q-card.marked { opacity: .55; border-color: var(--a-danger); }
+.q-card h3 { margin: 0 0 8px; font-size: 14px; display: flex; justify-content: space-between; }
+.q-card .del { font-weight: 400; font-size: 12px; }
+.option-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.option-row span { width: 20px; color: var(--a-muted); }
+.picker-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.picker-row label { margin-top: 8px; }
+
+.modal { position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.55); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; }
+/* display:flex 会覆盖 hidden 属性的 UA 默认样式，必须显式关闭，否则空弹窗常驻页面且关不掉 */
+.modal[hidden] { display: none; }
+.modal-box { background: #fff; border-radius: 12px; width: min(900px, 100%); box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--a-border); }
+.modal-head h2 { margin: 0; font-size: 17px; }
+.modal-x { border: 0; background: transparent; font-size: 24px; line-height: 1; cursor: pointer; color: var(--a-muted); }
+.modal-body { padding: 18px 20px 24px; max-height: 72vh; overflow: auto; }
+
+/* 独立登录页 */
+.login-body { background: linear-gradient(135deg, #1b2b50, #2f6bff); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-wrap { width: min(420px, 100%); }
+.login-card { background: #fff; border-radius: 16px; padding: 32px 30px; box-shadow: 0 24px 70px rgba(8,20,50,.3); }
+.login-brand { font-size: 19px; font-weight: 700; color: var(--a-side); }
+.login-tag { font-size: 10px; letter-spacing: 2px; color: #9aa7c0; margin: 4px 0 22px; }
+.login-card h1 { margin: 0; font-size: 22px; }
+.login-sub { color: var(--a-muted); font-size: 13px; margin: 6px 0 18px; }
+.login-card label { font-weight: 600; }
+.login-error { margin: 12px 0 0; padding: 9px 12px; border-radius: 7px; background: #fdecec; color: var(--a-danger); font-size: 13px; }
+.login-note { margin: 0 0 12px; padding: 9px 12px; border-radius: 7px; background: #e9f8f1; color: var(--a-ok); font-size: 13px; }
+.btn-primary { width: 100%; margin-top: 20px; padding: 11px; font-size: 15px; }
+.login-back { display: block; text-align: center; margin-top: 16px; font-size: 12px; color: var(--a-muted); }
+
+/* 图形验证码：登录页与改密弹窗共用 */
+.captcha-row { display: flex; align-items: center; gap: 10px; }
+.captcha-row input[type=text] { flex: 1; min-width: 0; }
+.captcha-img { flex: 0 0 auto; width: 120px; height: 40px; border: 1px solid var(--a-border); border-radius: 8px; background: #f2f5fb; cursor: pointer; }
+.captcha-img:not([src]), .captcha-img[src=""] { visibility: hidden; }
+.captcha-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.link-btn { border: 0; padding: 0; background: transparent; color: var(--a-primary); font-size: 12px; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.field-msg { display: block; margin: 0; font-size: 12px; color: var(--a-muted); }
+.field-msg.is-err { color: var(--a-danger); }
+.field-msg.is-ok { color: var(--a-ok); }
+.tag-self { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #eaf0ff; color: var(--a-primary); font-size: 11px; }
+
+@media (max-width: 820px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: static; flex: none; }
+    .side-nav { flex-direction: row; flex-wrap: wrap; }
+    .side-nav button { width: auto; }
+    .main { padding: 0 16px 40px; }
+    .picker-row { grid-template-columns: 1fr; }
+}
+
+/* ----------------------------- 模拟题库管理 ----------------------------- */
+.pb-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.pb-toolbar input[type=search] { flex: 1 1 260px; width: auto; min-width: 200px; }
+.pb-toolbar select { width: auto; flex: 0 0 auto; min-width: 130px; }
+.pb-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pb-detail-head h2 { margin: 10px 0 4px; font-size: 19px; }
+.pb-detail-head p { margin: 0; font-size: 12px; }
+.bank-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.bank-pill.is-published { background: #e8f6ee; color: #147a45; }
+.bank-pill.is-draft { background: #fff3df; color: #8a5a10; }
+.bank-pill.is-disabled { background: #f1f3f6; color: #6b7785; }
+.bank-pill.is-single { background: #eaf0ff; color: #2f59c7; }
+.bank-pill.is-multiple { background: #f3ebff; color: #6f42c1; }
+.pb-row-hint { margin-top: 4px; font-size: 11px; color: #b37400; max-width: 190px; line-height: 1.45; }
+/* 题库表格：行内操作固定 2×2，避免四个按钮挤成 3+1 的参差换行 */
+.pb-table td { vertical-align: top; }
+.pb-table .row-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pb-table .row-actions .btn { padding: 4px 6px; }
+.pb-table th:nth-child(3), .pb-table th:nth-child(5) { white-space: nowrap; }
+.pb-q-text { max-width: 460px; line-height: 1.6; }
+.pb-q-text b { font-weight: 600; }
+.notice.is-danger { background: #fdecec; border-color: #f5c2c0; color: #9f2f28; }
+.notice.is-danger b { color: #8c211b; }
+input.is-locked, select.is-locked { background: #f3f5f9; color: #6f7b8c; cursor: not-allowed; }
+.pb-rule-hint { margin: 6px 0 2px; font-size: 12px; color: var(--a-muted); line-height: 1.6; }
+.rule-card { border: 1px solid var(--a-border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; background: #fbfcff; }
+.rule-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+.rule-card-head h3 { margin: 0; font-size: 14px; }
+.rule-card-head span { font-size: 11.5px; }

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="quiz-hero">
+    <span class="eyebrow">DAILY QUIZ</span>
+    <h1>每日答题 · 认证题库随机 10 题</h1>
+    <p class="cert-hero-sub">选择厂商、方向与等级，从对应题库随机抽取 <b>10 道题</b>，每题 <b>10 分</b>，交卷后立即出分并逐题复盘。</p>
+</section>
+
+<div class="quiz-layout">
+    <section class="quiz-stage">
+        <div id="quiz-setup" class="quiz-panel"
+             data-tree='{{ tree|tojson }}'
+             data-preselect="{{ preselect }}"
+             data-preselect-id="{{ preselect_id }}"
+             data-logged-in="{{ '1' if current_user else '0' }}">
+            <header class="quiz-panel-head">
+                <h2>1. 选择认证</h2>
+                <span class="muted">三级联动</span>
+            </header>
+            <div class="picker-grid">
+                <label class="field">
+                    <span>厂商</span>
+                    <select id="pick-vendor"><option value="">请选择厂商</option></select>
+                </label>
+                <label class="field">
+                    <span>方向</span>
+                    <select id="pick-direction" disabled><option value="">请先选择厂商</option></select>
+                </label>
+                <label class="field">
+                    <span>等级</span>
+                    <select id="pick-level" disabled><option value="">请先选择方向</option></select>
+                </label>
+            </div>
+            <div class="picker-info" id="picker-info">
+                <span class="muted">选择完成后显示题量与难度</span>
+            </div>
+            <div class="quiz-start-row">
+                <button type="button" class="btn btn-lg" id="start-quiz">开始答题</button>
+                {% if not current_user %}
+                <span class="muted login-hint">未登录可先浏览；点击开始时会跳转登录，登录后自动回到本页。</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="quiz-play" class="quiz-panel" hidden>
+            <div class="quiz-toolbar">
+                <div class="quiz-progress-wrap">
+                    <div class="quiz-progress"><div class="quiz-progress-bar" id="quiz-progress-bar"></div></div>
+                    <span class="quiz-progress-text" id="quiz-progress-text">1 / 10</span>
+                </div>
+                <span class="quiz-timer" id="quiz-timer">00:00</span>
+            </div>
+            <div class="quiz-question-head">
+                <span class="q-type" id="quiz-type">单选题</span>
+                <span class="tag" id="quiz-difficulty">中</span>
+                <span class="muted" id="quiz-pool-label"></span>
+            </div>
+            <h2 class="quiz-stem" id="quiz-stem">题目加载中…</h2>
+            <div class="quiz-options" id="quiz-options"></div>
+            <div class="quiz-actions">
+                <button type="button" class="btn btn-ghost" id="quiz-prev">上一题</button>
+                <button type="button" class="btn" id="quiz-next">下一题</button>
+                <button type="button" class="btn btn-primary" id="quiz-submit" hidden>交卷看结果</button>
+                <span class="muted quiz-tip">答案提交前不显示对错</span>
+            </div>
+        </div>
+
+        <div id="quiz-result" class="quiz-panel" hidden>
+            <div class="result-head">
+                <div class="score-ring" id="score-ring">
+                    <span class="score-value" id="result-score">0</span>
+                    <span class="score-unit">分</span>
+                </div>
+                <div class="result-summary">
+                    <h2 id="result-title">答题完成</h2>
+                    <p class="muted" id="result-sub"></p>
+                    <div class="result-stats">
+                        <div><b id="result-correct">0</b><span>正确题数</span></div>
+                        <div><b id="result-accuracy">0%</b><span>正确率</span></div>
+                        <div><b id="result-time">00:00</b><span>用时</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="result-actions">
+                <button type="button" class="btn" id="retry-quiz">再来一组</button>
+                <a class="btn btn-ghost" href="{{ url_for('site.ranking_page') }}">查看排行榜</a>
+                <a class="btn btn-ghost" href="{{ url_for('site.profile_page') }}">个人中心</a>
+            </div>
+            <h3 class="review-title">逐题解析</h3>
+            <div class="review-list" id="review-list"></div>
+        </div>
+    </section>
+
+    <aside class="quiz-side">
+        <div class="side-card">
+            <h3>答题规则</h3>
+            <ul class="rule-list">
+                <li><b>10 道题</b>，由服务端随机抽取</li>
+                <li>每题 <b>10 分</b>，满分 <b>100 分</b></li>
+                <li>交卷后显示得分、正确率与错题解析</li>
+                <li>成绩写入个人中心，并同步日 / 周 / 月榜</li>
+            </ul>
+        </div>
+        {% include "_ranking_card.html" with context %}
+    </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,278 @@
+/* =========================================================================
+   模拟题库：认证页题库卡片 + 模拟答题 + 成绩解析
+   独立文件，避免与每日答题 / 个人中心样式互相污染。
+   ========================================================================= */
+
+.sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.bank-card {
+    position: relative; background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 19px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+    transition: transform .16s, box-shadow .16s, border-color .16s; cursor: pointer;
+}
+.bank-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(24, 40, 75, .1); border-color: #cddaf5; }
+.bank-card-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+.bank-tag {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; line-height: 1.7;
+}
+.bank-tag-基础 { background: #e8f6ee; color: #147a45; }
+.bank-tag-进阶 { background: #eaf0ff; color: #2f59c7; }
+.bank-tag-冲刺 { background: #fff0e6; color: #b35a12; }
+.bank-tag-错题本 { background: #fdeaea; color: #b3322b; }
+.bank-tag-mock { background: #1f2f52; color: #fff; }
+.bank-tag-drill { background: #f1f3f8; color: #5c687a; }
+.bank-difficulty { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+.bank-name { margin: 0 0 6px; font-size: 17px; line-height: 1.45; color: #182438; }
+.bank-desc {
+    margin: 0 0 12px; font-size: 12.5px; line-height: 1.7; color: var(--muted);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    min-height: 35px;
+}
+.bank-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: #5d6a7d; margin-bottom: 10px; }
+.bank-meta b { color: var(--ink); }
+.bank-progress { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.bank-progress-bar { flex: 1; height: 6px; border-radius: 999px; background: #edf1f8; overflow: hidden; }
+.bank-progress-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4f8bff, #2f6bff); }
+.bank-progress span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.bank-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); }
+.bank-state { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #4f5c70; min-width: 0; }
+.bank-state-dot { width: 7px; height: 7px; border-radius: 50%; background: #c6cfdd; flex: 0 0 auto; }
+.bank-state-dot.is-done { background: #2f6bff; box-shadow: 0 0 0 3px #e7efff; }
+.bank-state-dot.is-wrong { background: #e2483a; box-shadow: 0 0 0 3px #fdecea; }
+.bank-wrong { color: #c0392b; font-weight: 600; }
+.bank-enter {
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    padding: 8px 16px; border-radius: 8px; background: var(--primary); color: #fff !important;
+    font-size: 13px; font-weight: 600; text-decoration: none; transition: .15s;
+}
+.bank-enter:hover { background: var(--primary-d); }
+.bank-updated { display: block; margin-top: 8px; font-size: 11px; color: #9aa5b5; }
+
+.bank-note { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin-top: 6px; }
+.bank-note h2 { margin: 0 0 14px; font-size: 17px; }
+.bank-note-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; }
+.bank-note-grid b { display: block; font-size: 13.5px; margin-bottom: 4px; }
+.bank-note-grid p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.75; }
+
+/* ----------------------------- 答题页 ----------------------------- */
+.bank-exam { width: 100%; margin: 4px 0 10px; }
+/* 四态面板用 hidden 切换，需压过 .bank-exam-layout 等类选择器的 display */
+.bank-exam [hidden] { display: none !important; }
+.bank-exam-head {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 20px 12px; box-shadow: var(--shadow); margin-bottom: 18px;
+}
+.bank-exam-crumb { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--muted); margin-bottom: 10px; flex-wrap: wrap; }
+.bank-exam-crumb a { color: var(--primary); text-decoration: none; }
+.bank-exam-crumb a:hover { text-decoration: underline; }
+.bank-exam-crumb-sep { color: #c9d2e0; }
+.bank-exam-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.bank-exam-title h1 { margin: 0 0 4px; font-size: 23px; line-height: 1.35; }
+.bank-exam-title p { margin: 0; font-size: 13px; color: var(--muted); }
+.bank-exam-title p b { color: var(--ink); }
+.bank-exam-sep { margin: 0 7px; color: #c3ccda; }
+.bank-exam-side { text-align: center; flex: 0 0 auto; }
+.bank-clock {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 25px; font-weight: 700; color: var(--primary-d); line-height: 1.2;
+    letter-spacing: 1px; padding: 2px 12px; border-radius: 9px; background: #f2f6ff;
+}
+.bank-clock.is-urgent { color: #c0392b; background: #fdecea; }
+.bank-clock-label { font-size: 11px; color: var(--muted); }
+.bank-exam-bar { height: 5px; border-radius: 999px; background: #eef2f9; overflow: hidden; margin: 14px 0 10px; }
+.bank-exam-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6a9bff, #2f6bff); transition: width .25s; }
+.bank-exam-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); }
+
+.bank-state-panel {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 64px 24px; text-align: center; box-shadow: var(--shadow); color: var(--muted);
+}
+.bank-state-panel h2 { margin: 0 0 8px; color: var(--ink); font-size: 20px; }
+.bank-state-panel p { margin: 0 auto; max-width: 520px; font-size: 13.5px; line-height: 1.8; }
+.bank-state-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.bank-spinner {
+    display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid #d8e3ff; border-top-color: var(--primary);
+    animation: bank-spin .8s linear infinite; margin-right: 8px; vertical-align: -4px;
+}
+@keyframes bank-spin { to { transform: rotate(360deg); } }
+
+.bank-exam-layout { display: grid; grid-template-columns: minmax(0, 1fr) 286px; gap: 18px; align-items: start; }
+.bank-question-panel {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px 26px 20px; box-shadow: var(--shadow); min-height: 460px;
+}
+.bank-q-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.q-type {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+}
+.q-type.is-single { background: #eaf0ff; color: #2f59c7; }
+.q-type.is-multiple { background: #f3ebff; color: #6f42c1; }
+.bank-q-seq { margin-left: auto; font-size: 12px; color: var(--muted); }
+.bank-q-stem { margin: 0 0 22px; font-size: 18px; line-height: 1.8; color: #182438; font-weight: 600; }
+.bank-options { display: flex; flex-direction: column; gap: 10px; }
+.bank-option {
+    display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px;
+    border: 1px solid #e2e8f3; border-radius: 10px; cursor: pointer;
+    background: #fbfcff; transition: .13s; line-height: 1.7; font-size: 14px;
+}
+.bank-option:hover { border-color: #b9cdf5; background: #f7faff; }
+.bank-option.is-selected { border-color: var(--primary); background: #eef4ff; box-shadow: 0 0 0 3px rgba(59, 110, 245, .08); }
+.bank-option input { position: absolute; opacity: 0; pointer-events: none; }
+.bank-option-letter {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #eef2f9; color: #5b6880; font-weight: 700; font-size: 12.5px;
+}
+.bank-option.is-selected .bank-option-letter { background: var(--primary); color: #fff; }
+.bank-option-text { padding-top: 1px; }
+.bank-q-actions { display: flex; align-items: center; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.bank-save-hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+.bank-save-hint.is-ok { color: var(--ok); }
+.bank-save-hint.is-err { color: var(--bad); }
+.bank-q-tip { margin: 14px 0 0; font-size: 12px; color: #9aa5b5; }
+
+.bank-sheet {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 18px 16px; box-shadow: var(--shadow); position: sticky; top: 14px;
+}
+.bank-sheet-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.bank-sheet-head h2 { margin: 0; font-size: 15px; }
+.bank-sheet-head span { font-size: 12px; color: var(--muted); }
+.bank-sheet-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; max-height: 330px; overflow: auto; padding-right: 2px; }
+.bank-sheet-grid button {
+    height: 32px; border: 1px solid #dfe6f1; border-radius: 6px; background: #fff;
+    color: #526078; font-size: 12px; cursor: pointer; transition: .13s;
+}
+.bank-sheet-grid button:hover { border-color: #9db9f2; }
+.bank-sheet-grid button.is-answered { background: #eaf0ff; border-color: #b9cdf5; color: #2f59c7; font-weight: 600; }
+.bank-sheet-grid button.is-current { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.bank-sheet-legend { display: flex; gap: 12px; margin: 14px 0 12px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+.bank-sheet-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.bank-sheet-legend i { width: 9px; height: 9px; border-radius: 3px; background: #fff; border: 1px solid #dfe6f1; }
+.bank-sheet-legend i.is-current { background: var(--primary); border-color: var(--primary); }
+.bank-sheet-legend i.is-answered { background: #eaf0ff; border-color: #b9cdf5; }
+.bank-sheet-submit { width: 100%; }
+.bank-sheet-tip { margin: 10px 0 0; font-size: 11.5px; color: #9aa5b5; line-height: 1.6; }
+
+/* ----------------------------- 成绩与解析 ----------------------------- */
+.bank-result { display: flex; flex-direction: column; gap: 18px; }
+.bank-result-head {
+    display: flex; gap: 30px; align-items: center; background: #fff;
+    border: 1px solid var(--line); border-radius: 16px; padding: 28px 30px;
+    box-shadow: var(--shadow); flex-wrap: wrap;
+}
+.bank-score-ring {
+    flex: 0 0 auto; width: 132px; height: 132px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 8px solid #eaf0ff; background: #fbfdff;
+}
+.bank-score-ring.is-pass { border-color: #cdeedd; background: #f6fdf9; }
+.bank-score-ring.is-fail { border-color: #fbd9d5; background: #fffafa; }
+.bank-score-ring b { font-size: 40px; line-height: 1; color: var(--primary-d); }
+.bank-score-ring.is-pass b { color: #147a45; }
+.bank-score-ring.is-fail b { color: #c0392b; }
+.bank-score-ring span { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.bank-result-copy { flex: 1; min-width: 280px; }
+.bank-result-badge {
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700; margin-bottom: 6px;
+}
+.bank-result-badge.is-pass { background: #e8f6ee; color: #147a45; }
+.bank-result-badge.is-fail { background: #fdecea; color: #b3322b; }
+.bank-result-copy h2 { margin: 0 0 4px; font-size: 22px; }
+.bank-result-copy > p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; }
+.bank-result-timeout {
+    margin: 10px 0 0; padding: 9px 12px; border-radius: 8px; background: #fff8e8;
+    border: 1px solid #f2dfae; color: #7a5312; font-size: 12.5px;
+}
+.bank-result-stats { display: flex; gap: 28px; margin-top: 18px; flex-wrap: wrap; }
+.bank-result-stats div { display: flex; flex-direction: column; }
+.bank-result-stats b { font-size: 19px; color: #1e2b42; }
+.bank-result-stats span { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.bank-result-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+.bank-result-body { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px 8px; box-shadow: var(--shadow); }
+.bank-result-body-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.bank-result-body-head h2 { margin: 0; font-size: 18px; }
+.bank-result-body-head span { font-size: 12.5px; color: var(--muted); }
+.bank-analysis { display: flex; flex-direction: column; gap: 14px; padding-bottom: 16px; }
+.bank-analysis-item { border: 1px solid #e6ebf3; border-radius: 12px; padding: 16px 18px; background: #fcfdff; }
+.bank-analysis-item.is-wrong { border-color: #f6d7d3; background: #fffafa; }
+.bank-analysis-item header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.bank-analysis-no { font-size: 12px; font-weight: 700; color: #34435c; }
+.bank-analysis-status { margin-left: auto; font-size: 12px; font-weight: 700; }
+.bank-analysis-status.is-right { color: #147a45; }
+.bank-analysis-status.is-wrong { color: #c0392b; }
+.bank-analysis-status.is-empty { color: #7b8798; }
+.bank-analysis-item h3 { margin: 0 0 12px; font-size: 14.5px; line-height: 1.8; font-weight: 600; color: #1c2940; }
+.bank-analysis-options { display: flex; flex-direction: column; gap: 6px; }
+.bank-analysis-option {
+    display: flex; align-items: flex-start; gap: 9px; padding: 8px 11px; border-radius: 7px;
+    background: #fff; border: 1px solid #e8edf5; font-size: 13px; line-height: 1.65;
+}
+.bank-analysis-option .letter { font-weight: 700; color: #5b6880; flex: 0 0 18px; }
+.bank-analysis-option .text { flex: 1; }
+.bank-analysis-option em { font-style: normal; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; background: #e8f6ee; color: #147a45; white-space: nowrap; }
+.bank-analysis-option em.is-you { background: #eef3ff; color: #2f59c7; }
+.bank-analysis-option.is-correct { border-color: #bfe7d1; background: #f7fdfa; }
+.bank-analysis-option.is-picked-wrong { border-color: #f2c4be; background: #fff6f5; }
+.bank-analysis-answer { margin: 12px 0 0; font-size: 12.5px; color: #5b6880; line-height: 1.9; }
+.bank-analysis-answer b { color: #1c2940; }
+.bank-analysis-answer b.is-right { color: #147a45; }
+.bank-analysis-exp { margin-top: 10px; border-top: 1px dashed #e2e8f3; padding-top: 8px; }
+.bank-analysis-exp summary { cursor: pointer; font-size: 12.5px; color: var(--primary); font-weight: 600; }
+.bank-analysis-exp div { margin-top: 8px; font-size: 12.5px; line-height: 1.85; color: #4a576c; }
+.bank-analysis-exp.is-open > b { display: block; font-size: 12px; color: var(--muted); letter-spacing: .5px; }
+.bank-analysis-exp .exp-line { display: block; }
+
+/* ----------------------------- 交卷确认 ----------------------------- */
+.bank-confirm { position: fixed; inset: 0; z-index: 80; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.bank-confirm[hidden] { display: none; }
+.bank-confirm-box { background: #fff; border-radius: 14px; padding: 26px 28px 22px; width: min(440px, 100%); box-shadow: 0 24px 70px rgba(8, 20, 50, .3); }
+.bank-confirm-box h2 { margin: 0 0 8px; font-size: 19px; }
+.bank-confirm-box p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; }
+.bank-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+/* ----------------------------- 响应式 ----------------------------- */
+@media (max-width: 1000px) {
+    .practice-hero { grid-template-columns: 1fr; }
+    .bank-exam-layout { grid-template-columns: 1fr; }
+    .bank-sheet { position: static; }
+    .bank-sheet-grid { grid-template-columns: repeat(10, 1fr); max-height: none; }
+}
+@media (max-width: 720px) {
+    .practice-hero-copy { padding: 26px 22px 22px; }
+    .practice-hero h1 { font-size: 25px; }
+    .practice-hero-stats { gap: 22px; }
+    .practice-tabs { margin-left: 0; width: 100%; overflow-x: auto; }
+    .practice-tabs button { flex: 1 0 auto; }
+    .practice-cert-select select { max-width: none; width: 100%; }
+    .bank-grid { grid-template-columns: 1fr; }
+    .bank-exam-titlebar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .bank-exam-side { text-align: left; display: flex; align-items: baseline; gap: 8px; }
+    .bank-question-panel { padding: 18px 16px; min-height: 0; }
+    .bank-q-stem { font-size: 16px; }
+    .bank-sheet-grid { grid-template-columns: repeat(6, 1fr); }
+    .bank-result-head { padding: 22px 18px; gap: 18px; }
+    .bank-score-ring { width: 108px; height: 108px; border-width: 6px; }
+    .bank-score-ring b { font-size: 32px; }
+    .bank-result-stats { gap: 18px; }
+    .bank-result-body { padding: 18px 14px 4px; }
+    .bank-analysis-item { padding: 14px 12px; }
+}
+
+/* --------------------- 认证详情页内嵌的题库区块 ---------------------
+   认证页主栏较窄、题库通常只有 1-3 套，所以固定单列；
+   卡片不做整卡跳转（只有标题与按钮是链接），避免出现误导性的手型光标。 */
+.bank-grid-cert { grid-template-columns: 1fr; gap: 14px; }
+.bank-grid-cert .bank-card { cursor: default; }
+.bank-grid-cert .bank-name a { color: inherit; text-decoration: none; }
+.bank-grid-cert .bank-name a:hover { color: var(--primary); }
+.bank-grid-cert .bank-desc { -webkit-line-clamp: 2; }

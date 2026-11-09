@@ -36,7 +36,8 @@ DATE = "2026-11-07"
 
 
 def login(client, username: str, password: str) -> None:
-    r = client.post("/login", data={"username": username, "password": password})
+    import test_support
+    r = test_support.login(client, username, password)
     assert r.status_code == 302, f"{username} 登录失败"
 
 

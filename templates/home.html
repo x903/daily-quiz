@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <span class="eyebrow">CERTIFICATION QUESTION BANK</span>
+        <h1>认证题库 · 选对认证，刷对题</h1>
+        <p class="hero-sub">
+            覆盖阿里云、华为、AWS、思科 <b>4 大厂商 {{ stats.categories }} 个认证方向</b>，
+            每个认证都有独立的介绍、题库与每日 10 题随机练习，答完即出分、即看解析。
+        </p>
+        <div class="hero-actions">
+            <a class="btn btn-lg" href="{{ url_for('site.daily_quiz_page') }}">开始每日答题</a>
+            <a class="btn btn-ghost btn-lg" href="{{ url_for('site.ranking_page') }}">查看排行榜</a>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat"><b>{{ stats.categories }}</b><span>认证方向</span></div>
+            <div class="hero-stat"><b>{{ stats.questions }}</b><span>题库题目</span></div>
+            {% if logged_in %}
+            <div class="hero-stat"><b>{{ stats.quizzes }}</b><span>累计答题</span></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="hero-panel">
+        <div class="hero-panel-head">
+            <span>今日推荐</span>
+            <span class="tag tag-ok">每日 10 题</span>
+        </div>
+        <ol class="hero-steps">
+            <li><i>1</i><div><b>选认证</b><span>厂商 → 方向 → 等级，三级定位</span></div></li>
+            <li><i>2</i><div><b>刷 10 题</b><span>随机抽题，每题 10 分</span></div></li>
+            <li><i>3</i><div><b>看解析 · 上榜</b><span>错题逐题复盘，积分进日/周/月榜</span></div></li>
+        </ol>
+        <a class="hero-panel-link" href="{{ url_for('site.daily_quiz_page') }}">立即开始 →</a>
+    </div>
+</section>
+
+<div class="home-grid">
+    <section class="home-main">
+        <div class="section-head">
+            <div>
+                <h2>认证分类</h2>
+                <p class="muted">按厂商与方向进入，选择你要考的认证</p>
+            </div>
+            <a class="link-arrow" href="{{ url_for('site.ranking_page') }}">看看谁在榜首 →</a>
+        </div>
+
+        <div class="vendor-grid">
+            {% for v in tree %}
+            <article class="vendor-card">
+                <header class="vendor-head">
+                    <div>
+                        <h3><a href="{{ v.url }}">{{ v.label }}</a></h3>
+                        <p>{{ v.intro }}</p>
+                    </div>
+                    <span class="vendor-count">{{ v.question_count }} 题</span>
+                </header>
+                <div class="vendor-body">
+                    {% for d in v.directions %}
+                    <div class="dir-block">
+                        <div class="dir-title">
+                            {% if d.single %}
+                            <a href="{{ d.url }}">{{ d.label }}</a>
+                            {% else %}
+                            <span>{{ d.label }}</span>
+                            {% endif %}
+                            <span class="dir-count">{{ d.question_count }} 题</span>
+                        </div>
+                        {% if d.children %}
+                        <div class="leaf-links">
+                            {% for leaf in d.children %}
+                            <a href="{{ leaf.url }}" class="leaf-link">
+                                <span>{{ leaf.label }}</span>
+                                <em>{{ leaf.count }}</em>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <footer class="vendor-foot">
+                    <a href="{{ v.url }}">进入 {{ v.short }} 认证频道 →</a>
+                </footer>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+
+    <aside class="home-side">
+        {% include "_ranking_card.html" with context %}
+        {% if current_user %}
+        <div class="side-card side-me">
+            <h3>我的备考</h3>
+            <p class="muted">继续上次的认证，或查看自己的积分与荣誉记录。</p>
+            <div class="side-actions">
+                <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">继续刷题</a>
+                <a class="btn btn-ghost btn-sm" href="{{ url_for('site.profile_page') }}">个人中心</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="side-card side-cta">
+            <h3>登录后记录成绩</h3>
+            <p class="muted">浏览题库无需登录；登录后答题会计入积分、排行榜与个人中心。</p>
+            <a class="btn btn-sm" href="{{ url_for('login', next='/daily-quiz') }}">登录 / 注册</a>
+        </div>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

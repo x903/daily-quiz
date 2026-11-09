@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% from "_category_picker.html" import category_picker with context %}
 {% block title %}题目导入{% endblock %}
 {% block content %}
 <h1 class="page-title">题目导入</h1>
-<p class="muted">选择所属栏目并上传 UTF-8 编码的 Markdown 文件导入题目，支持的题目格式见页面下方说明。</p>
+<p class="muted">选择所属栏目并上传 UTF-8 编码的 Markdown / JSON 文件导入题目，支持的题目格式见页面下方说明。导入后试题自动显示在对应的三级菜单下。</p>
 
 <form method="post" action="{{ url_for('import_do') }}" class="form" enctype="multipart/form-data">
     <div class="form-row">
@@ -22,10 +22,19 @@
     </div>
 
     <div class="form-row">
+        <label>题库格式</label>
+        <select name="fmt">
+            <option value="">自动识别（推荐）</option>
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+        </select>
+    </div>
+
+    <div class="form-row">
         <label>上传 Markdown 文件</label>
-        <input type="file" name="md_file" accept=".md,.markdown,.txt" class="file-input"
+        <input type="file" name="md_file" accept=".md,.markdown,.txt,.json,application/json" class="file-input"
                onchange="autoFillDateFromName(this.files[0] ? this.files[0].name : '')">
-        <span class="field-tip">文件名含日期（如 ACP模拟题20道_2026-11-04.md）时，日期为空会自动填入；也可在上方手动指定日期。</span>
+        <span class="field-tip">同时支持 JSON 题库（.json），系统按扩展名自动识别格式。文件名含日期（如 ACP模拟题20道_2026-11-04.md）时，日期为空会自动填入；也可在上方手动指定日期。</span>
     </div>
 
     {% if need_confirm %}
@@ -33,6 +42,7 @@
             该日期（{{ today }}）已存在题库。是否覆盖？覆盖将删除原题目、成绩与错题。
         </div>
         <input type="hidden" name="confirm_overwrite" value="1">
+        <input type="hidden" name="fmt" value="{{ fmt or 'markdown' }}">
         {# 浏览器无法回填已选文件，用隐藏字段暂存上一轮上传的内容；不是导入入口 #}
         <textarea name="pending_content" style="display:none">{{ pending_content or '' }}</textarea>
         <span class="field-tip">已保留本次上传的文件内容，无需重新选择；如需改用其他文件，可在上方重新选择后再确认。</span>
@@ -72,6 +82,21 @@ D. 选项D
 **解析：**
 - **考点**：...</pre>
     <p class="muted">ACP 风格中每题自成一套，`**解析：**` 之后的说明文字会被自动忽略。</p>
+    <h4>格式三：JSON 题库（.json）</h4>
+    <pre>{
+  "date": "2026-11-06",
+  "title": "HCIP-数通 练习题库",
+  "questions": [
+    {
+      "type": "single",
+      "question": "题干内容？",
+      "options": {"A": "选项A", "B": "选项B", "C": "选项C", "D": "选项D"},
+      "answer": ["B"],
+      "explanation": "**考点**：..."
+    }
+  ]
+}</pre>
+    <p class="muted">支持题型 single / multiple / judge（或中文「单选题 / 多选题 / 判断题」）；答案可写 "B" 或 ["A","B"]；也可用系统「导出题目」生成的 sets 结构。</p>
 </div>
 
 <script>

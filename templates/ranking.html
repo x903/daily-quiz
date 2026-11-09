@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <span class="eyebrow">RANKING</span>
+        <h1>认证题库排行榜</h1>
+        <p class="cert-hero-sub">每日答题与模拟考都会累计积分（模拟考按正确率 ×2 计分，同一题库每天只计一次），自动计入日榜、周榜与月榜。当前展示：<b>{{ labels[period] }}</b>（{{ period_key }}）。</p>
+    </div>
+    <div class="rank-tabs rank-tabs-lg">
+        {% for key, label in labels.items() %}
+        <a href="{{ url_for('site.ranking_page', period=key) }}"
+           class="{% if period == key %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+</section>
+
+<div class="ranking-layout">
+    <section class="ranking-main">
+        {% if current_user %}
+        <div class="my-rank-card">
+            {% if me %}
+            <div class="my-rank-no">#{{ me.rank }}</div>
+            <div class="my-rank-copy">
+                <b>我的{{ labels[period] }}排名</b>
+                <span class="muted">积分 {{ me.points }} · 答题 {{ me.quiz_count }} 次 · 最高 {{ me.best_score }} 分</span>
+            </div>
+            {% else %}
+            <div class="my-rank-no">—</div>
+            <div class="my-rank-copy">
+                <b>你还没有本期记录</b>
+                <span class="muted">完成一次每日答题或模拟考就能进入榜单</span>
+            </div>
+            {% endif %}
+            <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">去答题</a>
+        </div>
+        {% else %}
+        <div class="my-rank-card my-rank-guest">
+            <div class="my-rank-copy">
+                <b>登录后查看我的排名</b>
+                <span class="muted">答题成绩会累计积分，并记入个人中心</span>
+            </div>
+            <a class="btn btn-sm" href="{{ url_for('login', next='/ranking') }}">登录</a>
+        </div>
+        {% endif %}
+
+        <div class="ranking-table">
+            <div class="ranking-row ranking-head">
+                <span>排名</span><span>昵称</span><span>积分</span><span>答题次数</span><span>最高分</span>
+            </div>
+            {% for row in rows %}
+            <div class="ranking-row {% if current_user and row.user_id == current_user.id %}is-me{% endif %}">
+                <span class="rank-cell">
+                    <i class="rank-medal medal-{{ row['rank'] if row['rank'] <= 3 else 'n' }}">{{ row['rank'] }}</i>
+                </span>
+                <span class="name-cell">{{ row.display_name }}</span>
+                <span class="points-cell">{{ row.points }}</span>
+                <span>{{ row.quiz_count }}</span>
+                <span>{{ row.best_score }}</span>
+            </div>
+            {% else %}
+            <div class="empty-box">
+                <h3>本期还没有答题记录</h3>
+                <p class="muted">成为第一个上榜的人吧。</p>
+                <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">开始答题</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <aside class="ranking-side">
+        <div class="side-card">
+            <header class="rank-head">
+                <h3>积分变化趋势</h3>
+                <span class="rank-period-note">{{ trend_owner }} · 近 7 天</span>
+            </header>
+            <div class="trend-chart" id="trend-chart" data-trend='{{ trend|tojson }}'></div>
+            <div class="trend-legend">
+                <span class="trend-dot"></span><span>每日答题积分</span>
+            </div>
+        </div>
+        <div class="side-card">
+            <h3>积分规则</h3>
+            <ul class="rule-list">
+                <li>每次随机 <b>10 道题</b></li>
+                <li>答对一题 <b>10 分</b>，满分 <b>100 分</b></li>
+                <li>积分同时累加到日 / 周 / 月榜</li>
+                <li>同一认证可反复练习，积分累加</li>
+            </ul>
+        </div>
+    </aside>
+</div>
+{% endblock %}

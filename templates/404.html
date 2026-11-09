@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}页面不存在 - 认证题库网{% endblock %}
+{% block content %}
+<div class="empty-box empty-page">
+    <h1>页面不存在</h1>
+    <p class="muted">链接可能已失效，或该认证尚未开放。可以返回首页，或直接去每日答题继续练习。</p>
+    <div class="btn-row">
+        <a class="btn" href="{{ url_for('index') }}">返回首页</a>
+        <a class="btn btn-ghost" href="{{ url_for('site.daily_quiz_page') }}">去每日答题</a>
+    </div>
+</div>
+{% endblock %}

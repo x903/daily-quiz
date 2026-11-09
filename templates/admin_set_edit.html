@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% from "_category_picker.html" import category_picker with context %}
 {% block title %}编辑题库 · {{ date }}{% endblock %}
 {% block content %}
@@ -74,7 +74,7 @@
                     <label>解析</label>
                     <textarea name="q_{{ q.id }}_explanation" rows="4"
                               placeholder="支持 **加粗** 与 - 列表，例如：&#10;- **考点**：...&#10;- **易错点**：...">{{ q.explanation }}</textarea>
-                    <span class="field-tip">解析会显示在题目回顾、成绩详情、答题结果与错题本中；答题页不会显示。</span>
+                    <span class="field-tip">解析会显示在题目回顾、成绩详情、答题结果与错题记录中；答题页不会显示。</span>
                 </div>
             </div>
         </section>

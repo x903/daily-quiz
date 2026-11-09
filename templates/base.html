@@ -1,41 +1,97 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    {% from "_nav.html" import render_cert_items with context %}
+    {% set meta = seo|default({}, true) %}
+    {% set page_title = meta.title or site_name %}
+    {% set page_desc = meta.description or default_description %}
+    {% set page_canonical = absolute_url(meta.canonical) if meta.canonical else ('' if meta.canonical is defined else absolute_url(request.path)) %}
+    {% set page_image = absolute_url(meta.image or default_image) %}
+    {% set page_robots = meta.robots or robots_for_path(request.path) %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}每日答题系统{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>{% block title %}{{ page_title }}{% endblock %}</title>
+    {% set display_title = self.title()|trim|striptags %}
+    <meta name="description" content="{{ page_desc }}">
+    {% if meta.keywords %}<meta name="keywords" content="{{ meta.keywords }}">{% endif %}
+    <meta name="robots" content="{{ page_robots }}">
+    <meta name="theme-color" content="#2f6bff">
+    <meta name="format-detection" content="telephone=no">
+    {% if page_canonical %}<link rel="canonical" href="{{ page_canonical }}">{% endif %}
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg', v=asset_version) }}">
+    <meta property="og:type" content="{{ meta.og_type or 'website' }}">
+    <meta property="og:site_name" content="{{ site_name }}">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:title" content="{{ display_title }}">
+    <meta property="og:description" content="{{ page_desc }}">
+    {% if page_canonical %}<meta property="og:url" content="{{ page_canonical }}">{% endif %}
+    <meta property="og:image" content="{{ page_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ site_name }} · {{ page_desc[:40] }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ display_title }}">
+    <meta name="twitter:description" content="{{ page_desc }}">
+    <meta name="twitter:image" content="{{ page_image }}">
+    {% if meta.jsonld %}<script type="application/ld+json">{{ meta.jsonld|safe }}</script>{% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='site.css', v=asset_version) }}">
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="brand" href="{{ url_for('index') if current_user else url_for('login') }}">📝 每日答题系统</a>
+            <a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">证</span>认证题库网</a>
             <nav class="nav">
+                {# 未登录也可浏览全部公开内容，只有答题动作才要求登录 #}
+                <a href="{{ url_for('index') }}" class="{% if request.path == '/' %}is-current{% endif %}">首页</a>
+                <a href="{{ url_for('site.daily_quiz_page') }}" class="{% if request.path.startswith('/daily-quiz') %}is-current{% endif %}">每日答题</a>
+                {# 模拟题库直接挂在各认证详情页，不再单列「自由练习」入口 #}
+                {# 排行榜、错题本只作为个人中心内的入口，不占用全站导航 #}
+                {# 厂商三级菜单：厂商 → 方向 → 认证（单级方向直接是认证链接） #}
+                {% for root in site_nav %}
+                {% set root_active = request.path.startswith('/cert/' ~ root.slug) %}
+                <span class="nav-dropdown{% if root_active %} is-current{% endif %}" data-nav-dropdown>
+                    <a class="nav-link" href="{{ root.url }}" aria-haspopup="true">{{ root.label }}</a>
+                    <button type="button" class="nav-toggle" aria-label="展开{{ root.label }}子菜单" aria-expanded="false">▾</button>
+                    <ul class="nav-submenu nav-level-2">
+                        {% for d in root.directions %}
+                        {% if d.single %}
+                        <li><a href="{{ d.url }}">{{ d.label }}</a></li>
+                        {% else %}
+                        <li class="has-children">
+                            <a href="{{ d.url }}">{{ d.label }}</a>
+                            <button type="button" class="nav-toggle" aria-label="展开{{ d.label }}认证列表" aria-expanded="false">▸</button>
+                            <ul class="nav-submenu nav-level-3">
+                                {% for c in d.children %}
+                                <li><a href="{{ c.url }}">{{ c.label }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                </span>
+                {% endfor %}
                 {% if current_user %}
-                    <a href="{{ url_for('index') }}">首页</a>
-                    <a href="{{ url_for('wrong_list') }}">错题本</a>
-                    <a href="{{ url_for('leaderboard_page') }}">排行榜</a>
-                    {# 阿里云认证：唯一的多级菜单，结构由 navigation.CERT_NAV 驱动 #}
-                    <span class="nav-dropdown{% if cert_active_slug %} is-current{% endif %}" data-nav-dropdown>
-                        <a class="nav-link" href="{{ url_for('cert_index') }}" aria-haspopup="true">阿里云认证</a>
-                        <button type="button" class="nav-toggle" aria-label="展开阿里云认证子菜单" aria-expanded="false">▾</button>
-                        <ul class="nav-submenu nav-level-2">
-                            {{ render_cert_items(cert_nav.children, 2) }}
-                        </ul>
-                    </span>
-                    {% if current_user.role == 'admin' %}
-                        <a href="{{ url_for('import_page') }}">导入题目</a>
-                        <a href="{{ url_for('admin_dashboard') }}">后台管理</a>
-                    {% endif %}
                     <span class="nav-user">
-                        <span class="role-badge role-{{ current_user.role }}">{{ '管理员' if current_user.role == 'admin' else '用户' }}</span>
-                        <b>{{ current_user.username }}</b>
+                        <a class="nav-user-link{% if request.path.startswith('/profile') %} is-current{% endif %}"
+                           href="{{ url_for('site.profile_page') }}" title="进入个人中心">
+                            <span class="role-badge role-user">用户</span>
+                            <b>{{ current_user.username }}</b>
+                        </a>
                         <a class="nav-logout" href="{{ url_for('logout') }}">退出</a>
                     </span>
                 {% else %}
-                    <a href="{{ url_for('login') }}">登录</a>
-                    <a href="{{ url_for('register') }}">注册</a>
+                    {% if current_admin %}
+                        <span class="nav-user">
+                            <span class="role-badge role-admin">管理员</span>
+                            <b>{{ current_admin.username }}</b>
+                            <a class="nav-logout" href="{{ url_for('admin_dashboard') }}">进入管理后台</a>
+                        </span>
+                    {% else %}
+                        <a class="nav-login" href="{{ url_for('login', next=request.full_path if request.path != '/' else None) }}">登录</a>
+                        <a class="nav-register" href="{{ url_for('register') }}">注册</a>
+                    {% endif %}
                 {% endif %}
             </nav>
         </div>
@@ -54,10 +110,20 @@
     </main>
 
     <footer class="footer">
-        <span>Flask 每日答题系统 · SQLite · 多用户权限版</span>
+        <div class="footer-inner">
+            <span>认证题库网 · 阿里云 / 华为 / AWS / 思科认证题库与每日刷题</span>
+            <span class="footer-links">
+                <a href="{{ url_for('site.daily_quiz_page') }}">每日答题</a>
+                <a href="{{ url_for('site.ranking_page') }}">排行榜</a>
+                <a href="{{ url_for('site.vendor_page', vendor_slug='aliyun') }}">阿里云认证</a>
+                <a href="{{ url_for('site.vendor_page', vendor_slug='huawei') }}">华为认证</a>
+                <a href="{{ url_for('site.vendor_page', vendor_slug='aws') }}">AWS 认证</a>
+                <a href="{{ url_for('site.vendor_page', vendor_slug='cisco') }}">思科认证</a>
+            </span>
+        </div>
     </footer>
-    <script src="{{ url_for('static', filename='nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='category_picker.js') }}"></script>
+    <script src="{{ url_for('static', filename='nav.js', v=asset_version) }}"></script>
+    <script src="{{ url_for('static', filename='site.js', v=asset_version) }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

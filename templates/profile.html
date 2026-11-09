@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='account.css', v=asset_version) }}">
+{% endblock %}
+
+{% block content %}
+<section class="profile-hero">
+    <div class="profile-main">
+        <div class="profile-avatar" id="hero-avatar" aria-hidden="true">
+            <img class="avatar-img" src="{{ avatar_url }}" alt="" width="64" height="64"
+                 loading="eager" referrerpolicy="no-referrer"
+                 onerror="this.closest('.profile-avatar').classList.add('is-fallback'); this.remove();">
+            <span class="avatar-fallback">{{ profile.nickname[:1]|upper }}</span>
+        </div>
+        <div class="profile-ident">
+            <span class="eyebrow">MY PROFILE</span>
+            <h1 id="hero-name">{{ profile.nickname }}</h1>
+            <p class="profile-sub">
+                <b>@{{ profile.username }}</b>
+                <span class="dot-sep">·</span>加入于 {{ profile.created_at[:10] }}
+                <span class="dot-sep">·</span>累计答对 {{ stats.correct }} 题
+                {% if stats.categories %}<span class="dot-sep">·</span>覆盖 {{ stats.categories }} 个认证方向{% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="profile-actions">
+        <a class="btn" href="{{ url_for('site.daily_quiz_page') }}">继续答题</a>
+        <a class="btn btn-ghost" href="{{ url_for('wrong_list') }}">错题本</a>
+        <a class="btn btn-ghost" href="{{ url_for('site.ranking_page') }}">排行榜</a>
+    </div>
+</section>
+
+<div class="account-layout">
+    <div class="account-main">
+
+        <!-- 基础信息 -->
+        <section class="panel" id="basic-panel">
+            <header class="panel-head">
+                <div>
+                    <h2>基础信息</h2>
+                    <p class="muted">昵称会展示在排行榜，个人简介最多 200 字。</p>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="basic-edit">编辑</button>
+            </header>
+
+            <div class="kv-list" id="basic-view">
+                <div class="kv">
+                    <span class="kv-label">昵称</span>
+                    <span class="kv-value" data-basic="nickname">{{ profile.nickname }}</span>
+                </div>
+                <div class="kv">
+                    <span class="kv-label">性别</span>
+                    <span class="kv-value" data-basic="gender">{{ profile.gender }}</span>
+                </div>
+                <div class="kv">
+                    <span class="kv-label">个人简介</span>
+                    <span class="kv-value kv-bio{% if not profile.bio %} is-empty{% endif %}" data-basic="bio">{{ profile.bio or '还没有填写个人简介，写一句备考目标吧。' }}</span>
+                </div>
+                <div class="kv">
+                    <span class="kv-label">用户名</span>
+                    <span class="kv-value">{{ profile.username }}<em class="kv-hint">注册后不可修改</em></span>
+                </div>
+            </div>
+
+            <form class="profile-form" id="basic-form" hidden novalidate>
+                <div class="form-field">
+                    <label for="basic-nickname">昵称</label>
+                    <input type="text" id="basic-nickname" name="nickname" maxlength="20"
+                           value="{{ profile.nickname_editable or profile.nickname }}"
+                           placeholder="2-20 个字符" autocomplete="nickname">
+                    <p class="form-hint">2-20 个字符，留空则使用用户名。</p>
+                </div>
+                <div class="form-field">
+                    <label>性别</label>
+                    <div class="radio-row">
+                        {% for item in ['男', '女', '保密'] %}
+                        <label class="radio">
+                            <input type="radio" name="gender" value="{{ item }}"
+                                   {% if profile.gender == item %}checked{% endif %}>
+                            <span>{{ item }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label for="basic-bio">个人简介</label>
+                    <textarea id="basic-bio" name="bio" rows="4" maxlength="200"
+                              placeholder="例如：正在备考阿里云 ACP，目标一次通过。">{{ profile.bio }}</textarea>
+                    <p class="form-hint"><span id="bio-count">{{ profile.bio|length }}</span> / 200</p>
+                </div>
+                <div class="btn-row">
+                    <button type="submit" class="btn" id="basic-save">保存修改</button>
+                    <button type="button" class="btn btn-ghost" id="basic-cancel">取消</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- 账号安全 -->
+        <section class="panel" id="security-panel">
+            <header class="panel-head">
+                <div>
+                    <h2>账号安全</h2>
+                    <p class="muted">手机号与邮箱仅展示脱敏信息，验证通过后可用于登录与找回密码。</p>
+                </div>
+            </header>
+
+            <ul class="sec-list">
+                <li class="sec-row">
+                    <span class="sec-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="10" rx="2.4"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>
+                    </span>
+                    <div class="sec-info">
+                        <span class="sec-label">登录密码</span>
+                        <span class="sec-value">已设置<em class="sec-hint">建议定期更换，修改后需重新登录</em></span>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" data-open="modal-password">修改密码</button>
+                </li>
+
+                <li class="sec-row">
+                    <span class="sec-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6"/><path d="M10.6 18.4h2.8"/></svg>
+                    </span>
+                    <div class="sec-info">
+                        <span class="sec-label">手机号</span>
+                        <span class="sec-value">
+                            <b data-sec="phone">{{ profile.security.phone or '未绑定' }}</b>
+                            <span class="tag {% if profile.security.phone_verified %}tag-ok{% else %}tag-muted{% endif %}" data-sec-tag="phone">
+                                {% if profile.security.phone_verified %}已验证{% elif profile.security.phone_bound %}待验证{% else %}未绑定{% endif %}
+                            </span>
+                            <em class="sec-hint">用于接收验证码，支持更换</em>
+                        </span>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="phone-open" data-open="modal-phone">
+                        {{ '更换' if profile.security.phone_bound else '绑定' }}
+                    </button>
+                </li>
+
+                <li class="sec-row">
+                    <span class="sec-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5.4" width="18" height="13.2" rx="2.2"/><path d="m4 7.4 8 5.6 8-5.6"/></svg>
+                    </span>
+                    <div class="sec-info">
+                        <span class="sec-label">邮箱</span>
+                        <span class="sec-value">
+                            <b data-sec="email">{{ profile.security.email or '未绑定' }}</b>
+                            <span class="tag {% if profile.security.email_verified %}tag-ok{% else %}tag-muted{% endif %}" data-sec-tag="email">
+                                {% if profile.security.email_verified %}已验证{% elif profile.security.email_bound %}待验证{% else %}未绑定{% endif %}
+                            </span>
+                            <em class="sec-hint">
+                                {% if profile.security.email_bound %}可用于登录与找回密码{% else %}找回密码的唯一凭证，建议尽快绑定{% endif %}
+                            </em>
+                        </span>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="email-open" data-open="modal-email">
+                        {{ '更换' if profile.security.email_bound else '绑定' }}
+                    </button>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <!-- 学习数据 -->
+    <aside class="account-side">
+        <section class="panel">
+            <header class="panel-head">
+                <div><h2>学习数据</h2><p class="muted">来自每日答题、模拟考记录与排行榜</p></div>
+            </header>
+            <div class="mini-stats">
+                <div class="mini-stat">
+                    <span>累计答题次数</span>
+                    <b>{{ stats.times }}<em>次</em></b>
+                    {% if stats.exam_times %}<small>另有模拟考 {{ stats.exam_times }} 场</small>{% endif %}
+                </div>
+                <div class="mini-stat">
+                    <span>最高分</span>
+                    <b>{{ stats.best }}<em>分</em></b>
+                    {% if stats.exam_times %}<small>模拟考最佳 {{ stats.exam_best }} 分</small>{% endif %}
+                </div>
+                <div class="mini-stat">
+                    <span>排行榜积分</span>
+                    <b>{{ ranks.month.points if ranks.get('month') else 0 }}<em>分</em></b>
+                    <small>本月</small>
+                </div>
+                <div class="mini-stat">
+                    <span>平均正确率</span>
+                    <b>{{ '%.0f'|format(stats.avg_accuracy * 100) }}<em>%</em></b>
+                </div>
+            </div>
+
+            <div class="rank-lines">
+                {% for key, label in [('day', '今日排名'), ('week', '本周排名'), ('month', '本月排名')] %}
+                {% set r = ranks.get(key) %}
+                <a class="rank-line" href="{{ url_for('site.ranking_page') }}?period={{ key }}">
+                    <span>{{ label }}</span>
+                    {% if r %}
+                    <b>#{{ r.rank }}</b>
+                    <em>{{ r.points }} 分 · {{ r.quiz_count }} 次</em>
+                    {% else %}
+                    <b class="muted-rank">—</b>
+                    <em>本期还没上榜</em>
+                    {% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <header class="panel-head">
+                <div><h2>最近答题</h2><p class="muted">最近 5 次练习</p></div>
+            </header>
+            {% if recent %}
+            <ul class="recent-list">
+                {% for r in recent %}
+                <li>
+                    <span class="recent-score">{{ r.score }}<em>分</em></span>
+                    <span class="recent-body">
+                        <b>{{ r.cert_name }}</b>
+                        <em>{{ r.correct }}/{{ r.total }} 题 · {{ r.finished_at[5:16] }}</em>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="side-empty">
+                <p>还没有答题记录</p>
+                <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">开始答题</a>
+            </div>
+            {% endif %}
+        </section>
+    </aside>
+</div>
+
+<!-- 荣誉徽章 -->
+<section class="honor-section">
+    <div class="section-head">
+        <div><h2>荣誉徽章</h2><p class="muted">已点亮 {{ earned|length }} / {{ badges|length }} 枚</p></div>
+    </div>
+    <div class="badge-grid">
+        {% for badge in badges %}
+        <div class="badge-card {% if badge.earned %}earned{% else %}locked{% endif %}">
+            <span class="badge-icon">{% if badge.earned %}★{% else %}☆{% endif %}</span>
+            <b>{{ badge.name }}</b>
+            <span>{{ badge.desc }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- 历史答题记录 -->
+<section class="honor-section">
+    <div class="section-head"><div><h2>历史答题记录</h2><p class="muted">共 {{ stats.times }} 次</p></div></div>
+    {% if records %}
+    <div class="history-table">
+        <div class="history-row history-head">
+            <span>时间</span><span>认证分类</span><span>得分</span><span>正确题数</span><span>用时</span>
+        </div>
+        {% for r in records %}
+        <div class="history-row">
+            <span class="muted">{{ r.finished_at }}</span>
+            <span>{{ r.cert_name }}</span>
+            <span class="history-score">{{ r.score }}</span>
+            <span>{{ r.correct }} / {{ r.total }}</span>
+            <span>{{ '%02d:%02d'|format(r.duration // 60, r.duration % 60) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-box">
+        <h3>还没有答题记录</h3>
+        <p class="muted">完成第一次每日答题，这里就会出现积分、徽章与排名。</p>
+        <a class="btn btn-sm" href="{{ url_for('site.daily_quiz_page') }}">开始答题</a>
+    </div>
+    {% endif %}
+</section>
+
+<!-- ==================== 修改密码 ==================== -->
+<div class="modal-layer" id="modal-password" hidden>
+    <div class="modal-mask" data-close="modal-password"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pw-title">
+        <header class="modal-head">
+            <h3 id="pw-title">修改密码</h3>
+            <button type="button" class="modal-x" data-close="modal-password" aria-label="关闭">×</button>
+        </header>
+        <form class="profile-form" id="password-form" novalidate>
+            <div class="form-field">
+                <label for="pw-old">原密码</label>
+                <input type="password" id="pw-old" name="old_password" autocomplete="current-password" placeholder="请输入当前密码">
+            </div>
+            <div class="form-field">
+                <label for="pw-new">新密码</label>
+                <input type="password" id="pw-new" name="new_password" autocomplete="new-password" placeholder="8-16 位，至少包含字母和数字">
+                <p class="form-hint">8-16 位，需同时包含字母和数字，且不能与原密码相同。</p>
+            </div>
+            <div class="form-field">
+                <label for="pw-confirm">确认新密码</label>
+                <input type="password" id="pw-confirm" name="confirm_password" autocomplete="new-password" placeholder="请再次输入新密码">
+            </div>
+            <p class="notice">修改成功后当前登录状态会失效，需要使用新密码重新登录。</p>
+            <div class="btn-row">
+                <button type="submit" class="btn" id="pw-submit">确认修改</button>
+                <button type="button" class="btn btn-ghost" data-close="modal-password">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== 绑定 / 更换手机号 ==================== -->
+<div class="modal-layer" id="modal-phone" hidden>
+    <div class="modal-mask" data-close="modal-phone"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="phone-title">
+        <header class="modal-head">
+            <h3 id="phone-title">{{ '更换手机号' if profile.security.phone_bound else '绑定手机号' }}</h3>
+            <button type="button" class="modal-x" data-close="modal-phone" aria-label="关闭">×</button>
+        </header>
+        <form class="profile-form" id="phone-form" novalidate>
+            {% if profile.security.phone_bound %}
+            <p class="notice">当前绑定：{{ profile.security.phone }}。换绑后旧号码立即解绑。</p>
+            {% endif %}
+            <div class="form-field">
+                <label for="phone-input">手机号</label>
+                <input type="tel" id="phone-input" name="phone" inputmode="numeric" maxlength="11"
+                       autocomplete="tel" placeholder="请输入 11 位手机号">
+            </div>
+            <div class="form-field">
+                <label for="phone-code">短信验证码</label>
+                <div class="code-row">
+                    <input type="text" id="phone-code" name="code" inputmode="numeric" maxlength="6"
+                           autocomplete="one-time-code" placeholder="6 位验证码">
+                    <button type="button" class="btn btn-ghost" id="phone-send">获取验证码</button>
+                </div>
+                <p class="form-hint" id="phone-hint">验证码 10 分钟内有效，仅用于本次绑定。</p>
+            </div>
+            <div class="btn-row">
+                <button type="submit" class="btn" id="phone-submit">确认绑定</button>
+                <button type="button" class="btn btn-ghost" data-close="modal-phone">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== 绑定 / 更换邮箱 ==================== -->
+<div class="modal-layer" id="modal-email" hidden>
+    <div class="modal-mask" data-close="modal-email"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="email-title">
+        <header class="modal-head">
+            <h3 id="email-title">{{ '更换邮箱' if profile.security.email_bound else '绑定邮箱' }}</h3>
+            <button type="button" class="modal-x" data-close="modal-email" aria-label="关闭">×</button>
+        </header>
+        <form class="profile-form" id="email-form" novalidate>
+            {% if profile.security.email_bound %}
+            <p class="notice">当前绑定：{{ profile.security.email }}。换绑后旧邮箱立即解绑。</p>
+            {% endif %}
+            <div class="form-field">
+                <label for="email-input">邮箱</label>
+                <input type="email" id="email-input" name="email" maxlength="128"
+                       autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="form-field">
+                <label for="email-code">邮箱验证码</label>
+                <div class="code-row">
+                    <input type="text" id="email-code" name="code" inputmode="numeric" maxlength="6"
+                           autocomplete="one-time-code" placeholder="6 位验证码">
+                    <button type="button" class="btn btn-ghost" id="email-send">获取验证码</button>
+                </div>
+                <p class="form-hint" id="email-hint">验证码 10 分钟内有效，验证通过后邮箱标记为已验证。</p>
+            </div>
+            <div class="btn-row">
+                <button type="submit" class="btn" id="email-submit">确认绑定</button>
+                <button type="button" class="btn btn-ghost" data-close="modal-email">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='profile.js', v=asset_version) }}"></script>
+{% endblock %}

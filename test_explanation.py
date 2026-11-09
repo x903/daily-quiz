@@ -14,6 +14,7 @@ import re
 import models
 import parser as md_parser
 import quiz_logic
+import test_support
 from app import app
 
 client = app.test_client()
@@ -84,7 +85,8 @@ print("2) 渲染：加粗 / 项目符号 / 缩进 / HTML 转义（XSS 防护）�
 # 3~5) 页面与导出
 # ---------------------------------------------------------------------------
 try:
-    assert client.post("/login", data={"username": "user", "password": "user123"}).status_code == 302
+    assert client.post("/login", data={"username": "user", "password": "user123",
+                                   **test_support.captcha_fields()}).status_code == 302
 
     # 故意全部不作答 → 20 道错题，用于验证错题类页面
     html_quiz = client.get(f"/quiz/{DATE}").get_data(as_text=True)

@@ -8,7 +8,7 @@
 3. 日 / 周 / 月周期边界与「上一期 / 下一期」平移（含月末夹紧）；
 4. 跨周 / 跨月聚合正确性（上周但同月、上月的分数不串榜）与同分并列排名；
 5. 历史成绩回填（幂等）、删除题库时积分流水级联清理；
-6. 页面 / JSON 接口 / 入口与权限（未登录 302，普通用户与管理员 200）。
+6. 页面 / JSON 接口 / 入口与权限（未登录可浏览，登录用户与管理员正常）。
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ TODAY = date.today()
 QUIZ_DATE = TODAY.isoformat()          # 正式答题用的题库日期
 OTHER_SET_DATE = "2026-01-02"          # 用于级联删除测试的题库
 ON = date(2026, 6, 18)                 # 周期边界固定基准日（周四，远离运行日）
-USERS = ("alice", "bob", "carol")
+USERS = ("alice", "bobby", "carol")
 
 
 def setup_database() -> None:
@@ -105,7 +105,8 @@ def _answer_form(questions: list[dict], wrong_ids: set[int] | None = None) -> di
 
 
 def _login(client, username: str, password: str):
-    return client.post("/login", data={"username": username, "password": password})
+    import test_support
+    return test_support.login(client, username, password)
 
 
 def main() -> None:
@@ -166,25 +167,25 @@ def main() -> None:
     _award("alice", f"{ws.isoformat()} 09:00:00", 5)           # 本周内另一天
     _award("alice", f"{(ws - timedelta(days=1)).isoformat()} 09:00:00", 9)   # 上周、同月
     _award("alice", f"{(ms - timedelta(days=1)).isoformat()} 09:00:00", 11)  # 上月
-    _award("bob", f"{ON.isoformat()} 09:00:00", 7)
+    _award("bobby", f"{ON.isoformat()} 09:00:00", 7)
     _award("carol", f"{ON.isoformat()} 09:00:00", 2)
 
     day = _board("day", ON)
     assert _by_name(day, "alice")["points"] == 7
-    assert [_by_name(day, n)["rank"] for n in ("alice", "bob", "carol")] == [1, 1, 3], "同分应并列"
+    assert [_by_name(day, n)["rank"] for n in ("alice", "bobby", "carol")] == [1, 1, 3], "同分应并列"
     week = _board("week", ON)
     assert _by_name(week, "alice")["points"] == 12, "周榜 = 7 + 5，不含上周的 9 分"
     month = _board("month", ON)
     assert _by_name(month, "alice")["points"] == 21, "月榜 = 7 + 5 + 9，不含上月的 11 分"
     prev_month = _board("month", ms - timedelta(days=1))
     assert _by_name(prev_month, "alice")["points"] == 11
-    assert _by_name(month, "bob")["points"] == 7 and _by_name(month, "carol")["points"] == 2
+    assert _by_name(month, "bobby")["points"] == 7 and _by_name(month, "carol")["points"] == 2
     print("4) 日榜 7 / 周榜 12 / 月榜 21 聚合准确，上周与上月数据不串榜，同分并列 ✅")
 
     # ---- 5. 页面 / 接口 / 入口 / 权限 ----
     anon = app.test_client()
-    assert anon.get("/leaderboard").status_code == 302
-    assert anon.get("/leaderboard/api").status_code == 302
+    assert anon.get("/leaderboard").status_code == 200, "未登录也应能浏览排行榜"
+    assert anon.get("/leaderboard/api").status_code == 200
     page = client.get("/leaderboard")
     assert page.status_code == 200
     html = page.get_data(as_text=True)
@@ -201,8 +202,11 @@ def main() -> None:
     assert "排行榜" in client.get("/").get_data(as_text=True), "首页应有榜单入口"
     admin = app.test_client()
     assert _login(admin, "admin", "admin123").status_code == 302
-    assert "排行榜" in admin.get("/admin").get_data(as_text=True)
-    print("5) 榜单页面 / JSON 接口 / 导航与首页入口正常，未登录被拦截 ✅")
+    admin_body = admin.get("/admin").get_data(as_text=True)
+    for user_only in ("每日答题", "个人中心", "错题本", "阿里云认证"):
+        assert user_only not in admin_body, f"管理后台不应出现用户端菜单：{user_only}"
+    assert admin.get("/api/admin/overview").get_json()["ok"]
+    print("5) 榜单页面 / JSON 接口 / 导航与首页入口正常，未登录可浏览、答题需登录 ✅")
 
     # ---- 6. 历史成绩回填（幂等）----
     conn = models.get_conn()

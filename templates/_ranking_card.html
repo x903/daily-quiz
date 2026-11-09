@@ -1,0 +1,27 @@
+{% set board = ranking|default({'period': 'day', 'rows': [], 'labels': {'day': '日榜', 'week': '周榜', 'month': '月榜'}}, true) %}
+<div class="side-card ranking-card" id="home-ranking" data-endpoint="{{ url_for('site.api_ranking') }}">
+    <header class="rank-head">
+        <h3>排行榜</h3>
+        <span class="rank-period-note">每日答题积分</span>
+    </header>
+    <div class="rank-tabs" role="tablist">
+        {% for key, label in board.labels.items() %}
+        <button type="button" role="tab" data-period="{{ key }}"
+                class="{% if board.period == key %}active{% endif %}"
+                aria-selected="{{ 'true' if board.period == key else 'false' }}">{{ label }}</button>
+        {% endfor %}
+    </div>
+    <ol class="rank-list" id="rank-list">
+        {% for row in board.rows %}
+        <li class="rank-item rank-{{ row['rank'] }}">
+            <span class="rank-no">{{ row['rank'] }}</span>
+            <span class="rank-name" title="{{ row.display_name }}">{{ row.display_name }}</span>
+            <span class="rank-points">{{ row.points }}<em>分</em></span>
+            <span class="rank-meta">{{ row.quiz_count }} 次 · 最高 {{ row.best_score }}</span>
+        </li>
+        {% else %}
+        <li class="rank-empty">今天还没有人答题，来抢第一位吧。</li>
+        {% endfor %}
+    </ol>
+    <a class="rank-more" href="{{ url_for('site.ranking_page') }}">查看完整榜单 →</a>
+</div>

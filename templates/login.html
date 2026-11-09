@@ -1,27 +1,50 @@
 {% extends "base.html" %}
-{% block title %}登录 · 每日答题系统{% endblock %}
+{% block title %}登录 · 认证题库网{% endblock %}
 {% block content %}
 <div class="auth-wrap">
     <div class="auth-card">
         <h1>登录</h1>
-        <p class="sub">登录后开始每日答题、查看成绩与错题。</p>
-        <form method="post" action="{{ url_for('login') }}">
+        <p class="sub">浏览题库无需登录；登录后即可开始答题，并保存成绩、错题与积分。</p>
+
+        {% if error %}<div class="form-alert" role="alert">{{ error }}</div>{% endif %}
+
+        <form method="post" action="{{ url_for('login') }}" id="login-form" novalidate>
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <div class="form-row">
                 <label for="username">用户名</label>
-                <input type="text" id="username" name="username" placeholder="请输入用户名" required autofocus>
+                <input type="text" id="username" name="username" placeholder="请输入用户名"
+                       autocomplete="username" required autofocus>
             </div>
             <div class="form-row">
                 <label for="password">密码</label>
-                <input type="password" id="password" name="password" placeholder="请输入密码" required>
+                <input type="password" id="password" name="password" placeholder="请输入密码"
+                       autocomplete="current-password" required>
+                <a class="forgot-link" href="{{ url_for('account.forgot_password_page') }}">忘记密码？</a>
             </div>
-            <button type="submit" class="btn">登录</button>
+            <div class="form-row">
+                <label for="captcha">验证码</label>
+                <div class="captcha-row">
+                    <input type="text" id="captcha" name="captcha_code" maxlength="6"
+                           placeholder="输入右侧字符" autocomplete="off" spellcheck="false" required>
+                    <img class="captcha-img" id="captcha-img" src="{{ captcha_svg }}"
+                         width="120" height="40" alt="图形验证码" title="点击换一张">
+                </div>
+                <div class="captcha-foot">
+                    <span class="field-hint" id="captcha-hint">不区分大小写，5 分钟内有效</span>
+                    <button type="button" class="link-btn" id="captcha-refresh">看不清，换一张</button>
+                </div>
+                <input type="hidden" name="captcha_key" id="captcha-key" value="{{ captcha_key }}">
+            </div>
+
+            <p class="field-msg is-err" id="form-error" hidden></p>
+            <button type="submit" class="btn" id="login-submit">登录</button>
         </form>
-        <div class="demo-tip">
-            默认演示账号：<br>
-            管理员 <b>admin / admin123</b><br>
-            普通用户 <b>user / user123</b>
-        </div>
-        <p class="auth-foot">还没有账号？<a href="{{ url_for('register') }}">立即注册</a></p>
+
+        <p class="auth-foot">还没有账号？<a href="{{ url_for('register', next=next_url or None) }}">立即注册</a></p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='auth.js', v=asset_version) }}"></script>
 {% endblock %}

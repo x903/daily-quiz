@@ -15,7 +15,6 @@ from datetime import datetime
 from typing import Optional
 
 import models
-import parser as md_parser
 import points
 import score_manager
 import wrong_book

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 630px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: radial-gradient(1200px 630px at 78% -10%, #4a7bff 0%, #2f5fe0 42%, #1b3fae 100%);
+    color: #fff; position: relative;
+  }
+  .glow {
+    position: absolute; width: 620px; height: 620px; right: -160px; top: -220px;
+    background: radial-gradient(circle, rgba(255,255,255,.28), rgba(255,255,255,0) 62%);
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(120deg, rgba(0,0,0,.85), transparent 70%);
+  }
+  .wrap { position: relative; padding: 72px 80px; height: 100%; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .mark {
+    width: 74px; height: 74px; border-radius: 20px; display: grid; place-items: center;
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.35);
+    font-size: 40px; font-weight: 700; backdrop-filter: blur(6px);
+  }
+  .brand-name { font-size: 30px; font-weight: 700; letter-spacing: 1px; }
+  .brand-sub { font-size: 16px; opacity: .72; margin-top: 4px; letter-spacing: 2px; }
+  h1 { margin-top: 64px; font-size: 66px; line-height: 1.18; font-weight: 800; letter-spacing: 1px; }
+  h1 span { color: #ffd66b; }
+  .desc { margin-top: 26px; font-size: 25px; line-height: 1.6; opacity: .9; font-weight: 400; }
+  .tags { margin-top: auto; display: flex; gap: 14px; }
+  .tag {
+    padding: 12px 22px; border-radius: 999px; font-size: 19px;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
+  }
+  .foot { position: absolute; right: 80px; bottom: 44px; font-size: 18px; opacity: .62; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="grid"></div>
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark">证</div>
+      <div>
+        <div class="brand-name">认证题库网</div>
+        <div class="brand-sub">CERTIFICATION QUIZ</div>
+      </div>
+    </div>
+    <h1>阿里云 · 华为 · AWS · 思科<br><span>认证题库与每日刷题</span></h1>
+    <p class="desc">34 个认证方向的考试介绍、题库练习与错题解析，每日 10 题稳步备考。</p>
+    <div class="tags">
+      <span class="tag">每日 10 题</span>
+      <span class="tag">错题解析</span>
+      <span class="tag">积分排行榜</span>
+      <span class="tag">个人备考档案</span>
+    </div>
+  </div>
+  <div class="foot">每日刷题 · 稳步上岸</div>
+</body>
+</html>

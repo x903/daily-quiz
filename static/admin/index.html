@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>管理控制台 · 认证题库网</title>
+    <link rel="stylesheet" href="/static/admin/admin.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand"><span class="brand-icon">🛠</span><span>认证题库网 · 管理台</span></div>
+        <div class="side-caption">ADMIN CONSOLE</div>
+        <nav class="side-nav" id="admin-menu">
+            <button type="button" data-section="overview"><i>◧</i>控制台概览</button>
+            <button type="button" data-section="categories"><i>◈</i>认证分类</button>
+            <button type="button" data-section="questions"><i>▤</i>题库管理</button>
+            <button type="button" data-section="practice"><i>▦</i>模拟题库</button>
+            <button type="button" data-section="import"><i>⇪</i>题库导入</button>
+            <button type="button" data-section="intros"><i>✎</i>认证介绍管理</button>
+            <button type="button" data-section="rankings"><i>★</i>排行榜数据</button>
+            <button type="button" data-section="users"><i>◉</i>用户与权限</button>
+            <button type="button" data-section="password"><i>⚿</i>修改密码</button>
+            <button type="button" data-section="records"><i>≡</i>答题记录</button>
+        </nav>
+        <div class="side-foot">
+            <div class="admin-chip"><span class="dot"></span><b id="admin-name">…</b><span class="tag">管理员</span></div>
+            <button type="button" id="logout-btn" class="side-logout">退出登录</button>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="main-head">
+            <div><h1 id="page-title">控制台概览</h1><p id="page-sub" class="sub"></p></div>
+            <span class="api-tag">REST API · /api/admin/</span>
+        </header>
+        <div id="toast" class="toast" hidden></div>
+        <section id="view" class="view"><div class="loading">正在加载管理数据…</div></section>
+    </main>
+</div>
+
+<!-- 编辑 / 删除确认等弹层 -->
+<div id="modal" class="modal" hidden>
+    <div class="modal-box">
+        <div class="modal-head"><h2 id="modal-title">操作</h2><button type="button" id="modal-close" class="modal-x">×</button></div>
+        <div id="modal-body" class="modal-body"></div>
+    </div>
+</div>
+
+<script src="/static/admin/admin.js"></script>
+</body>
+</html>

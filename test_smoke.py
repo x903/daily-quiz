@@ -89,13 +89,18 @@ def test_overwrite_guard():
 
 
 def test_auth():
-    # 登录校验
-    assert auth.authenticate("admin", "admin123") is not None
-    assert auth.authenticate("admin", "wrong") is None
-    ok, msg = auth.register("dup", "123456")
-    assert ok
-    ok2, _ = auth.register("dup", "123456")
-    assert not ok2  # 重名应失败
+    # 两套账号分别校验，互不串表
+    assert auth.authenticate_admin("admin", "admin123") is not None
+    assert auth.authenticate_admin("admin", "wrong") is None
+    assert auth.authenticate_user("user", "user123") is not None
+    assert auth.authenticate_user("admin", "admin123") is None, "管理员不能从用户端登录"
+    assert auth.authenticate_admin("user", "user123") is None, "普通用户不能登管理端"
+    # 重复运行脚本时不因历史用户而失败：已存在则只验证重名被拒绝
+    if not models.get_user_by_username("dup_user"):
+        ok, msg = auth.register("dup_user", "123456")
+        assert ok, msg
+    ok2, msg2 = auth.register("dup_user", "123456")
+    assert not ok2 and "已被注册" in msg2, f"重名应被拒绝，实际：{msg2}"
 
 
 if __name__ == "__main__":

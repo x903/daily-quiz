@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>管理员登录 · 认证题库网</title>
+    <link rel="stylesheet" href="/static/admin/admin.css">
+</head>
+<body class="login-body">
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-brand"><span>🛠</span> 管理控制台</div>
+        <div class="login-tag">ADMINISTRATOR SIGN IN</div>
+        <h1>管理员登录</h1>
+        <p class="login-sub">此入口仅校验独立的管理员账号，与普通用户登录完全隔离。</p>
+        <div id="login-note" class="login-note" hidden></div>
+        <form id="login-form" autocomplete="off">
+            <label for="username">管理员账号</label>
+            <input type="text" id="username" name="username" placeholder="请输入管理员账号" required autofocus>
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" placeholder="请输入密码" autocomplete="current-password" required>
+            <label for="captcha">验证码</label>
+            <div class="captcha-row">
+                <input type="text" id="captcha" name="captcha" maxlength="6" placeholder="输入右侧字符"
+                       autocomplete="off" spellcheck="false" required>
+                <img class="captcha-img" id="captcha-img" width="120" height="40"
+                     alt="图形验证码" title="点击换一张">
+            </div>
+            <div class="captcha-foot">
+                <span class="field-msg" id="captcha-hint">正在获取验证码…</span>
+                <button type="button" class="link-btn" id="captcha-refresh">看不清，换一张</button>
+            </div>
+            <input type="hidden" id="captcha-key" value="">
+            <div id="login-error" class="login-error" hidden></div>
+            <button type="submit" class="btn-primary" id="login-submit">进入管理后台</button>
+        </form>
+        <a class="login-back" href="/login">← 前往普通用户登录</a>
+    </div>
+</div>
+<script>
+(function () {
+    var form = document.getElementById('login-form');
+    var err = document.getElementById('login-error');
+    var note = document.getElementById('login-note');
+    var btn = document.getElementById('login-submit');
+    var captchaImg = document.getElementById('captcha-img');
+    var captchaInput = document.getElementById('captcha');
+    var captchaHint = document.getElementById('captcha-hint');
+    var captchaKeyField = document.getElementById('captcha-key');
+    var captchaKey = '';
+    var hintDefault = '不区分大小写，5 分钟内有效';
+
+    function showError(msg) { err.textContent = msg; err.hidden = false; }
+    function hideError() { err.hidden = true; }
+    function setHint(text, isError) {
+        captchaHint.textContent = text;
+        captchaHint.className = 'field-msg' + (isError ? ' is-err' : '');
+    }
+
+    var params = new URLSearchParams(location.search);
+    if (params.get('pwd') === '1') {
+        note.textContent = '密码已修改，请使用新密码重新登录。';
+        note.hidden = false;
+    } else if (params.get('error') === '1') {
+        showError('账号、密码或验证码不正确，请重试');
+    }
+
+    async function loadCaptcha(keepError) {
+        captchaKey = '';
+        captchaKeyField.value = '';
+        captchaImg.removeAttribute('src');
+        setHint('正在获取验证码…', false);
+        if (!keepError) hideError();
+        try {
+            var res = await fetch('/api/admin/captcha', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            var data = await res.json();
+            if (!res.ok || !data.ok) {
+                setHint(data.error || '验证码获取失败，请稍后重试', true);
+                return;
+            }
+            captchaKey = data.data.captchaKey;
+            captchaKeyField.value = captchaKey;
+            captchaImg.src = data.data.image;
+            setHint(hintDefault, false);
+        } catch (ex) {
+            setHint('无法连接验证码接口，请检查网络后重试', true);
+        }
+    }
+
+    captchaImg.addEventListener('click', function () { loadCaptcha(); });
+    document.getElementById('captcha-refresh').addEventListener('click', function () { loadCaptcha(); });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        hideError();
+        var code = captchaInput.value.trim();
+        if (!captchaKey) { showError('请先获取验证码，点击图片可刷新'); return; }
+        if (!code) { showError('请输入验证码'); captchaInput.focus(); return; }
+
+        btn.disabled = true;
+        btn.textContent = '正在验证…';
+        try {
+            var res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    username: document.getElementById('username').value.trim(),
+                    password: document.getElementById('password').value,
+                    captchaKey: captchaKey,
+                    captchaCode: code
+                })
+            });
+            var data = await res.json();
+            if (data.ok) {
+                location.href = data.redirect || '/admin/dashboard';
+                return;
+            }
+            var message = data.error || '登录失败';
+            if (data.code === 'ACCOUNT_LOCKED' && data.locked_seconds) {
+                message = message + '（约 ' + Math.ceil(data.locked_seconds / 60) + ' 分钟）';
+            } else if (data.attempts_left !== undefined && data.attempts_left > 0) {
+                message = message + '（还可尝试 ' + data.attempts_left + ' 次）';
+            }
+            showError(message);
+            // 验证码是一次性的：无论失败原因是什么都换一张，避免用同一张图重复试探
+            captchaInput.value = '';
+            await loadCaptcha(true);
+            captchaInput.focus();
+        } catch (ex) {
+            showError('无法连接管理接口，请稍后重试');
+            await loadCaptcha(true);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '进入管理后台';
+        }
+    });
+
+    loadCaptcha();
+})();
+</script>
+</body>
+</html>

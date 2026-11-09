@@ -1,10 +1,16 @@
 # ============================================================================
-# 每日答题系统 · 一键部署（MySQL 8.0 + Flask/Gunicorn）
+# 认证题库网 · 一键部署（MySQL 8.0 + Flask/Gunicorn）
 #   docker compose up -d --build
 #   docker compose logs -f web
 #   docker compose down          # 停止但保留数据卷
 #   docker compose down -v       # 连数据卷一起删除（不可恢复）
-# 访问 http://localhost:5000 ，默认账号 admin/admin123、user/user123
+# 用户端  ：http://localhost:5000/             （user/user123）
+#   首页（左分类 / 右榜单）/ 4 厂商 34 个认证 / 每日答题 / 个人中心（含错题本、排行榜入口）
+# 管理端  ：http://localhost:5000/admin/login  （账号密码见部署说明，页面不展示）→ /admin/dashboard
+#   认证分类、题库导入与 CRUD、认证介绍（五段式）管理、排行榜数据、用户与权限
+# 管理端数据接口统一为 /api/admin/* ，前端是 static/admin/ 下的独立静态页面
+# 首次启动后灌示例题库：docker compose exec web python seed_bank.py
+#                        docker compose exec web python seed_practice.py
 # ============================================================================
 services:
   db:
@@ -21,19 +27,86 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+08:00
+      # ---- 1 核 1G 低配调优（默认值会吃到 450MB+）----
+      # 关闭性能采集与 binlog：本站不跑复制、不做审计，省内存也省磁盘
+      - --performance-schema=OFF
+      - --skip-log-bin
+      - --mysqlx=0
+      - --innodb-buffer-pool-size=64M
+      - --innodb-buffer-pool-instances=1
+      - --innodb-redo-log-capacity=32M
+      - --innodb-log-buffer-size=8M
+      - --innodb-flush-log-at-trx-commit=2
+      - --innodb-read-io-threads=2
+      - --innodb-write-io-threads=1
+      # 连接数按实际并发压到 30（gunicorn 1 worker × 4 线程 + 运维连接足够）
+      - --max-connections=30
+      - --thread-cache-size=4
+      - --table-open-cache=200
+      - --table-definition-cache=200
+      - --max-allowed-packet=16M
+      - --key-buffer-size=8M
+      - --tmp-table-size=16M
+      - --max-heap-table-size=16M
+      # 临时表落盘上限，避免大查询把小内存吃穿
+      - --temptable-max-ram=32M
+      - --temptable-max-mmap=64M
+      - --skip-name-resolve
+      - --log-error-verbosity=2
     volumes:
       # 数据持久化；首次启动时自动执行建表脚本（幂等，应用 init_db 会再校验一次）
       - mysql_data:/var/lib/mysql
       - ./schema_mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 60s
+    # 单机资源上限：常态约 200MB，留出余量防止峰值被 OOM 杀掉
+    mem_limit: 420m
+    cpus: "0.7"
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # 默认只在内部网络暴露；如需用宿主机工具连库，取消下面两行注释
     # ports:
     #   - "3306:3306"
+
+  # 登录验证码 / 失败计数 / 账号锁定统一存 Redis（用户端与管理端用不同键前缀）：
+  # gunicorn 是多 worker 多进程，存进程内会出现「A 生成、B 校验失败」的问题。
+  redis:
+    image: redis:7-alpine
+    container_name: daily-quiz-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
+      # 验证码是短生命周期数据，不落盘
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    # 只存验证码与失败计数，64MB 上限足够
+    mem_limit: 96m
+    cpus: "0.2"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
   web:
     build: .
@@ -42,6 +115,8 @@ services:
     restart: unless-stopped
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DB_BACKEND: mysql
@@ -52,10 +127,60 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-daily_quiz}
       DB_CONNECT_RETRIES: "30"
       DB_CONNECT_RETRY_DELAY: "2"
-      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-in-production}
+      # 会话签名密钥：必须显式设置。留空或用示例值等于把「伪造管理员 Cookie」的
+      # 能力交给所有人，因此这里用 :? 语法强制要求，未配置时 compose 直接拒绝启动。
+      SECRET_KEY: ${SECRET_KEY:?请在 .env 中设置 SECRET_KEY，建议：openssl rand -hex 32}
+      # ---- 管理员初始账号（仅首次建库时生效）----
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      # 用 ADMIN_INITIAL_PASSWORD 而不是 ADMIN_PASSWORD 做变量名：db.py 会加载 .env，
+      # 若 .env 里叫 ADMIN_PASSWORD 会串进本地回归测试，覆盖测试依赖的默认账号。
+      # 留空则生产环境随机生成并打印一次到容器日志。
+      ADMIN_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      # ---- 登录图形验证码 / 限流 ----
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CAPTCHA_TTL_SECONDS: ${CAPTCHA_TTL_SECONDS:-300}
+      CAPTCHA_RATE_LIMIT: ${CAPTCHA_RATE_LIMIT:-5}
+      CAPTCHA_RATE_WINDOW: ${CAPTCHA_RATE_WINDOW:-300}
+      LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
+      LOGIN_LOCK_SECONDS: ${LOGIN_LOCK_SECONDS:-900}
       TZ: Asia/Shanghai
+      # ---- 安全相关默认值 ----
+      # 生产环境默认关闭「验证码/重置链接回显」，否则任何人都能拿到别人的重置链接
+      ACCOUNT_DEV_MODE: ${ACCOUNT_DEV_MODE:-0}
+      # HTTPS 部署设为 1（或让 SITE_BASE_URL 以 https:// 开头，自动开启）
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      # 反向代理层数：单层 nginx 设 1，直连（无代理）保持 0。
+      # 为 0 时不读取 X-Forwarded-For，避免伪造该头绕过登录锁定与限流。
+      TRUST_PROXY_COUNT: ${TRUST_PROXY_COUNT:-0}
+      # 额外的可信来源（逗号分隔，仅在同源校验被反代改写 Host 时才需要）
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-8}
+      # ---- 个人中心：通知渠道与找回密码 ----
+      # 邮件里的绝对地址（反代 / 域名部署时改成 https://your-domain）
+      SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:5000}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-465}
+      MAIL_SSL: ${MAIL_SSL:-1}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-0}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      SMS_WEBHOOK_URL: ${SMS_WEBHOOK_URL:-}
+      SMS_WEBHOOK_TOKEN: ${SMS_WEBHOOK_TOKEN:-}
     ports:
       - "${WEB_PORT:-5000}:5000"
+      - "8080:5000"
+    # 1 核机器：1 个 worker + 4 线程比多进程更省内存，也避免上下文切换
+    mem_limit: 256m
+    cpus: "0.9"
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
+  # 显式固定卷名：项目目录改名 / 换 compose 项目名也不会挂到新的空卷
   mysql_data:
+    name: daily-quiz_mysql_data

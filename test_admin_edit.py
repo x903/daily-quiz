@@ -69,7 +69,9 @@ def _edit_form(questions: list[dict], title: str, set_date: str) -> dict:
 
 
 def _login(client, username: str, password: str):
-    return client.post("/login", data={"username": username, "password": password})
+    import test_support
+    # 用例会用管理员身份顺带访问用户端回顾页，因此同时挂上普通用户会话
+    return test_support.login(client, username, password, with_user_session=True)
 
 
 def _counts() -> dict:
@@ -125,7 +127,13 @@ def main() -> None:
     dashboard = admin.get("/admin")
     assert dashboard.status_code == 200
     dash_html = dashboard.get_data(as_text=True)
-    assert "编辑" in dash_html and "删除题库" in dash_html and ORIGINAL_TITLE in dash_html
+    assert "管理控制台" in dash_html
+    # 「排行榜」在管理端是「排行榜数据」，不能用子串排除，改用用户端独有文案
+    for gone in ("首页", "每日答题", "个人中心", "错题本", "阿里云认证", "导入题目", "后台管理"):
+        assert gone not in dash_html, f"管理后台不应出现用户端菜单：{gone}"
+    api_sets = admin.get("/api/admin/sets")
+    assert api_sets.status_code == 200 and api_sets.get_json()["ok"]
+    assert ORIGINAL_TITLE in str(api_sets.get_json()["data"])
     edit_page = admin.get(f"/admin/set/{DATE}/edit")
     assert edit_page.status_code == 200
     edit_html = edit_page.get_data(as_text=True)
@@ -220,7 +228,7 @@ def main() -> None:
 
     before = _counts()
     resp = admin.post(f"/admin/set/{NEW_DATE}/delete", data={"confirm_text": NEW_DATE})
-    assert resp.status_code == 302 and resp.headers["Location"].endswith("/admin")
+    assert resp.status_code == 302 and resp.headers["Location"].endswith("/admin/dashboard")
     assert models.get_daily_set_by_date(NEW_DATE) is None
     assert len(models.list_sets_with_stats()) == 1, "只应剩下另一个题库"
     after = _counts()

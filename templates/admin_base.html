@@ -1,0 +1,47 @@
+{# 管理端专用布局：与用户端 base.html 完全独立，绝不渲染用户导航菜单。
+   正式管理界面是 /admin/dashboard 的静态 SPA；本模板只供遗留兼容视图使用，
+   菜单同样只出现管理相关组件。 #}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}管理控制台 · 每日答题系统{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin/admin.css', v=asset_version) }}">
+</head>
+<body class="admin-shell">
+    <header class="admin-topbar">
+        <div class="admin-topbar-inner">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">🛠 管理控制台</a>
+            <nav class="admin-nav">
+                <a href="{{ url_for('admin_dashboard') }}#overview">控制台概览</a>
+                <a href="{{ url_for('admin_dashboard') }}#sets">题库管理</a>
+                <a href="{{ url_for('admin_dashboard') }}#import">题库导入</a>
+                <a href="{{ url_for('admin_dashboard') }}#users">用户与权限</a>
+                <a href="{{ url_for('admin_dashboard') }}#records">答题记录</a>
+            </nav>
+            <span class="admin-user">
+                <span class="role-badge role-admin">管理员</span>
+                <b>{{ current_admin.username if current_admin else '' }}</b>
+                <a href="{{ url_for('admin_logout') }}">退出</a>
+            </span>
+        </div>
+    </header>
+
+    <main class="container admin-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, msg in messages %}
+                    <div class="flash flash-{{ category }}">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer"><span>独立管理端 · 数据接口 /api/admin/ · 与用户端入口隔离</span></footer>
+    <script src="{{ url_for('static', filename='category_picker.js', v=asset_version) }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

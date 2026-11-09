@@ -68,8 +68,11 @@ def _answer_form(questions: list[dict], wrong_ids: set[int] | None = None) -> di
 
 
 def _login(client, username: str = "user", password: str = "user123"):
+    import test_support  # 延迟导入：app 需在 DB_PATH 重定向之后再加载
     return client.post(
-        "/login", data={"username": username, "password": password}
+        "/login",
+        data={"username": username, "password": password,
+              **test_support.captcha_fields()},
     )
 
 
@@ -108,7 +111,9 @@ def main() -> None:
         sess["username"] = "ghost"
         sess["role"] = "user"
     r = ghost.get("/")
-    assert r.status_code == 302 and "/login" in r.headers["Location"]
+    assert r.status_code == 200, "首页已公开，陈旧 session 不影响游客浏览"
+    home = r.get_data(as_text=True)
+    assert "浏览题库无需登录" in home or "登录后答题" in home, "首页应说明浏览与答题的登录边界"
     with ghost.session_transaction() as sess:
         assert not sess.get("user_id"), "失效的登录态应被清空"
     r = ghost.post(f"/quiz/{DATE}", data=_answer_form(questions))

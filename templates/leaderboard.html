@@ -24,9 +24,13 @@
         <strong>{{ my.points }}</strong> 分 · 答对 {{ my.correct }} 题 ·
         活跃 {{ my.active_days }} 天 · 单日最佳 {{ my.best_day }} 分
     </div>
-{% else %}
+{% elif current_user %}
     <div class="card">
         本期你还没有积分。去 <a href="{{ url_for('index') }}">答题</a>，每答对 1 题得 {{ points_per_correct }} 分。
+    </div>
+{% else %}
+    <div class="card">
+        当前为游客浏览。<a href="{{ url_for('login', next=url_for('leaderboard_page', period=period)) }}">登录</a>后即可参与排名，每答对 1 题得 {{ points_per_correct }} 分。
     </div>
 {% endif %}
 

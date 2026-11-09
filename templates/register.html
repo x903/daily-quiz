@@ -1,26 +1,55 @@
 {% extends "base.html" %}
-{% block title %}注册 · 每日答题系统{% endblock %}
+{% block title %}注册 · 认证题库网{% endblock %}
 {% block content %}
 <div class="auth-wrap">
     <div class="auth-card">
         <h1>注册新账号</h1>
-        <p class="sub">注册后将作为普通用户，可答题、查看个人成绩与错题。</p>
-        <form method="post" action="{{ url_for('register') }}">
+        <p class="sub">注册后作为普通用户，可答题、查看个人成绩与错题。</p>
+
+        {% if error %}<div class="form-alert" role="alert">{{ error }}</div>{% endif %}
+
+        <form method="post" action="{{ url_for('register') }}" id="register-form" novalidate>
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <div class="form-row">
                 <label for="username">用户名</label>
-                <input type="text" id="username" name="username" placeholder="2-20 个字符" required autofocus>
+                <input type="text" id="username" name="username" placeholder="4-20 位，字母 / 数字 / _ / ."
+                       value="{{ form.username if form else '' }}" maxlength="20"
+                       autocomplete="username" spellcheck="false" required autofocus>
+                <p class="field-msg" id="username-msg">4-20 位，可用字母、数字、下划线或点号，不能纯数字</p>
             </div>
             <div class="form-row">
                 <label for="password">密码</label>
-                <input type="password" id="password" name="password" placeholder="至少 6 位" required>
+                <input type="password" id="password" name="password" placeholder="至少 6 位"
+                       autocomplete="new-password" required>
             </div>
             <div class="form-row">
                 <label for="confirm">确认密码</label>
-                <input type="password" id="confirm" name="confirm" placeholder="再次输入密码" required>
+                <input type="password" id="confirm" name="confirm" placeholder="再次输入密码"
+                       autocomplete="new-password" required>
             </div>
-            <button type="submit" class="btn">注册并登录</button>
+            <div class="form-row">
+                <label for="email">邮箱 <span class="label-optional">选填</span></label>
+                <input type="email" id="email" name="email" placeholder="you@example.com"
+                       value="{{ form.email if form else '' }}" maxlength="128" autocomplete="email">
+                <p class="field-hint">注册后可在个人中心验证，用于找回密码。</p>
+            </div>
+            <div class="form-row">
+                <label for="phone">手机号 <span class="label-optional">选填</span></label>
+                <input type="tel" id="phone" name="phone" placeholder="11 位手机号"
+                       value="{{ form.phone if form else '' }}" maxlength="11"
+                       inputmode="numeric" autocomplete="tel">
+                <p class="field-hint">注册后可在个人中心发送验证码完成绑定。</p>
+            </div>
+
+            <p class="field-msg is-err" id="form-error" hidden></p>
+            <button type="submit" class="btn" id="register-submit">注册并登录</button>
         </form>
-        <p class="auth-foot">已有账号？<a href="{{ url_for('login') }}">去登录</a></p>
+
+        <p class="auth-foot">已有账号？<a href="{{ url_for('login', next=next_url or None) }}">去登录</a></p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='auth.js', v=asset_version) }}"></script>
 {% endblock %}
